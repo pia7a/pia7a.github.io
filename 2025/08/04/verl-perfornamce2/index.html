@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="x5-fullscreen" content="true">
+<meta name="full-screen" content="yes">
+<meta name="theme-color" content="#317EFB" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
+<meta name="description" content="性能分析工具： ray.timeline: 记录ray相关的任务调度时间线，颗粒度较大，用perfetoo查看。 Nsight: 记录Driver process时间线，以及各rank的时间线，包含cuda API调用等信息，可插桩，颗粒度较细，用Nsight system查看。  实验环境： 镜像：verlai&#x2F;verl:app-verl0.5-vllm0.9.1-mcore0.13.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="verl性能分析（二）-实验分析">
+<meta property="og:url" content="http://example.com/2025/08/04/verl-perfornamce2/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="性能分析工具： ray.timeline: 记录ray相关的任务调度时间线，颗粒度较大，用perfetoo查看。 Nsight: 记录Driver process时间线，以及各rank的时间线，包含cuda API调用等信息，可插桩，颗粒度较细，用Nsight system查看。  实验环境： 镜像：verlai&#x2F;verl:app-verl0.5-vllm0.9.1-mcore0.13.">
+<meta property="og:locale">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="article:published_time" content="2025-08-04T12:35:01.000Z">
+<meta property="article:modified_time" content="2025-08-05T11:11:40.299Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="Verl框架">
+<meta property="article:tag" content="性能分析">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/404.jpg">
+
+    <meta name="keywords" content="RLHF,Verl框架,性能分析">
+
+
+<title >verl性能分析（二）-实验分析</title>
+
+<!-- Favicon -->
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='16x16' ></link>
+
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='32x32' ></link>
+
+
+
+
+<!-- Plugin -->
+
+
+
+
+    
+<link rel="stylesheet" href="/css/plugins/bootstrap.row.css">
+
+    
+<link rel="stylesheet" href="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.css">
+
+    
+    
+
+
+
+
+<!-- Icon -->
+
+    
+<link rel="stylesheet" href="/css/plugins/font-awesome.min.css">
+
+
+
+
+<!-- Variable -->
+<script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-08-05 19:11:40"};</script>
+
+<!-- Theme mode css -->
+<link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
+<script>
+    let defaultMode = ASYNC_CONFIG.theme.default !=='auto' ?  ASYNC_CONFIG.theme.default : (window.matchMedia("(prefers-color-scheme: light)").matches ? 'style-light' : 'style-dark')
+    let catchMode = localStorage.getItem('theme-mode') || defaultMode;
+    let type = catchMode === 'style-dark' ? 'add' : 'remove';
+    document.documentElement.classList[type]('dark')
+</script>
+
+<!-- CDN -->
+
+
+    
+    
+
+
+
+<!-- Site Analytics -->
+
+ 
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+
+  <!-- app wrapper -->
+  <div class="trm-app-frame">
+
+    <!-- page preloader -->
+    <div class="trm-preloader">
+    <div class="trm-holder">
+        <div class="preloader">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+</div>
+    <!-- page preloader end -->
+
+    <!-- change mode preloader -->
+    <div class="trm-mode-swich-animation-frame">
+    <div class="trm-mode-swich-animation">
+        <i class="i-sun"><i class="iconfont far fa-sun"></i></i>
+        <div class="trm-horizon"></div>
+        <i class="i-moon"><i class="iconfont far fa-moon"></i></i>
+    </div>
+</div>
+    <!-- change mode preloader end -->
+
+      <!-- scroll container -->
+      <div id="trm-dynamic-content" class="trm-swup-animation">
+        <div id="trm-scroll-container" class="trm-scroll-container" style="opacity: 0">
+            <!-- top bar -->
+            <header class="trm-top-bar">
+	<div class="container">
+		<div class="trm-left-side">
+			<!-- logo -->
+<a href="/" class="trm-logo-frame trm-anima-link">
+    
+        <img alt="logo" src="/img/favicon.svg">
+    
+    
+        <div class="trm-logo-text">
+            Async<span>zhiqiang</span>
+        </div>
+    
+</a>
+<!-- logo end -->
+		</div>
+		<div class="trm-right-side">
+			<!-- menu -->
+<div class="trm-menu">
+    <nav>
+        <ul>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/" target="">
+                    首页
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/archives/" target="">
+                    时间线
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/tags/" target="">
+                    标签
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/categories" target="">
+                    分类
+                </a>
+                
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+<!-- menu end -->
+			
+    <!-- mode switcher place -->
+    <div class="trm-mode-switcher-place">
+        <div class="trm-mode-switcher">
+            <i class="iconfont far fa-sun"></i>
+            <input class="tgl tgl-light" id="trm-swich" type="checkbox">
+            <label class="trm-swich" for="trm-swich"></label>
+            <i class="iconfont far fa-moon"></i>
+        </div>
+    </div>
+    <!-- mode switcher place end -->
+
+			
+		</div>
+		<div class="trm-menu-btn">
+			<span></span>
+		</div>
+	</div>
+</header>
+            <!-- top bar end -->
+
+            <!-- body -->
+            
+<div class="trm-content-start">
+    <!-- banner -->
+    <div class="trm-banner">
+    
+    <!-- banner cover -->
+    <img style="object-position:top;object-fit:cover;" alt="banner" class="trm-banner-cover" src="https://pic1.zhimg.com/v2-b3c2c6745b9421a13a3c4706b19223b3_r.jpg">
+    <!-- banner cover end -->
+    
+
+    <!-- banner content -->
+    <div class="trm-banner-content trm-overlay">
+        <div class="container">
+            <div class="row">
+                
+                <div class="col-lg-4"></div>
+                
+                <div class="col-lg-8">
+
+                    <!-- banner title -->
+                    <div class="trm-banner-text ">
+                        <div class="trm-label trm-mb-20">
+                            more paper, more fun
+                        </div>
+                        <h1 class="trm-mb-30 trm-hsmb-font">
+                            verl性能分析（二）-实验分析
+                        </h1>
+
+                        
+                            <ul class="trm-breadcrumbs trm-label">
+                                <li>
+                                    <a href="/" class="trm-anima-link">Home</a>
+                                </li>
+                                <li>
+                                    <span>
+                                        2025
+                                    </span>
+                                </li>
+                            </ul>
+                        
+                    </div>
+                    <!-- banner title end -->
+
+                    <!-- scroll hint -->
+                    <span id="scroll-triger" class="trm-scroll-hint-frame">
+                        <div class="trm-scroll-hint"></div>
+                        <span class="trm-label">Scroll down</span>
+                    </span>
+                    <!-- scroll hint end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- banner content end -->
+</div>
+    <!-- banner end -->
+    <div class="container">
+        <div class="row">
+            
+                <div class="trm-page-sidebar col-lg-4 hidden-sm">
+                    <!-- main card -->
+                    <div class="trm-main-card-frame trm-sidebar">
+    <div class="trm-main-card"> 
+        <!-- card header -->
+<div class="trm-mc-header">
+    <div class="trm-avatar-frame trm-mb-20">
+        <img alt="Avatar" class="trm-avatar" src="/img/avatar.jpg">
+    </div>
+    <h5 class="trm-name trm-mb-15">
+        看雪
+    </h5>
+    
+</div>
+<!-- card header end -->
+        <!-- sidebar social -->
+
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<div class="trm-social">
+    
+        <a href="https://github.com" title="Github" rel="nofollow" target="_blank">
+            <i class="iconfont fab fa-github"></i>
+        </a>
+    
+</div>
+
+<!-- sidebar social end -->
+        <!-- info -->
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<ul class="trm-table trm-mb-20">
+    
+        <li>
+            <div class="trm-label">
+                Residence:
+            </div>
+            <div class="trm-label trm-label-light">
+                Mars
+            </div>
+        </li>
+    
+</ul>
+<!-- info end -->
+
+        
+    </div>
+</div>
+                    <!-- main card end -->
+                </div>
+            
+            <div class="trm-page-content col-lg-8">
+                <div id="trm-content" class="trm-content">
+                    <div class="trm-post-info row hidden-sm">
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-calendar-alt trm-icon"></i><br>
+            08/04
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-clock trm-icon"></i><br>
+            20:35
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div id="post-author" class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-user trm-icon"></i><br>
+            John Doe
+        </div>
+    </div>
+</div>
+<div class="trm-card ">
+    <article id="article-container" class="trm-publication">
+    <h1 id="性能分析工具："><a href="#性能分析工具：" class="headerlink" title="性能分析工具："></a>性能分析工具：</h1><ul>
+<li>ray.timeline: 记录ray相关的任务调度时间线，颗粒度较大，用<a target="_blank" rel="noopener" href="https://ui.perfetto.dev/">perfetoo</a>查看。</li>
+<li>Nsight: 记录Driver process时间线，以及各rank的时间线，包含cuda API调用等信息，可插桩，颗粒度较细，用Nsight system查看。</li>
+</ul>
+<h1 id="实验环境："><a href="#实验环境：" class="headerlink" title="实验环境："></a>实验环境：</h1><ul>
+<li>镜像：verlai&#x2F;verl:app-verl0.5-vllm0.9.1-mcore0.13.0-te2.2</li>
+<li>硬件：8*a6000-t2</li>
+<li>数据集：gsm8k</li>
+<li>模型：deepseek-7b-chat</li>
+<li>推理|训练：推理使用VLLM(tp&#x3D;2,dp&#x3D;4)，训练为FSDP(dp&#x3D;8)</li>
+<li>放置方式：actor、reference model和rollout model共置</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Nsight profiling configuration</span></span><br><span class="line">PROFILE_STEPS=<span class="string">&quot;[2,3]&quot;</span> <span class="comment"># or [] or null</span></span><br><span class="line">PROFILE_RANKS_ALL=True <span class="comment"># or True</span></span><br><span class="line">PROFILE_RANKS=[0,1,2,3,4,5,6,7]</span><br><span class="line">DISCRETE=False <span class="comment"># or True</span></span><br><span class="line">PROFILE_CONTINUOUS_STEPS=True</span><br><span class="line"></span><br><span class="line"><span class="built_in">set</span> -x</span><br><span class="line"></span><br><span class="line">python3 -m verl.trainer.main_ppo \</span><br><span class="line">    algorithm.adv_estimator=grpo \</span><br><span class="line">    data.train_files=/workspace/dataset/gsm8k/train.parquet \</span><br><span class="line">    data.val_files=/workspace/dataset/gsm8k/test.parquet \</span><br><span class="line">    data.train_batch_size=1024 \</span><br><span class="line">    data.max_prompt_length=512 \</span><br><span class="line">    data.max_response_length=1024 \</span><br><span class="line">    data.filter_overlong_prompts=True \</span><br><span class="line">    data.truncation=<span class="string">&#x27;error&#x27;</span> \</span><br><span class="line">    actor_rollout_ref.model.path=/workspace/model/ds_7b_chat \</span><br><span class="line">    actor_rollout_ref.actor.optim.lr=1e-6 \</span><br><span class="line">    actor_rollout_ref.model.use_remove_padding=True \</span><br><span class="line">    actor_rollout_ref.actor.ppo_mini_batch_size=256 \</span><br><span class="line">    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=80 \</span><br><span class="line">    actor_rollout_ref.actor.use_kl_loss=True \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_coef=0.001 \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_type=low_var_kl \</span><br><span class="line">    actor_rollout_ref.actor.entropy_coeff=0 \</span><br><span class="line">    actor_rollout_ref.model.enable_gradient_checkpointing=True \</span><br><span class="line">    actor_rollout_ref.actor.fsdp_config.param_offload=False \</span><br><span class="line">    actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \</span><br><span class="line">    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=80 \</span><br><span class="line">    actor_rollout_ref.rollout.tensor_model_parallel_size=2 \</span><br><span class="line">    actor_rollout_ref.rollout.name=vllm \</span><br><span class="line">    actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \</span><br><span class="line">    actor_rollout_ref.rollout.n=5 \</span><br><span class="line">    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=80 \</span><br><span class="line">    actor_rollout_ref.ref.fsdp_config.param_offload=True \</span><br><span class="line">    actor_rollout_ref.profiler.ranks=<span class="variable">$PROFILE_RANKS</span> \</span><br><span class="line">    actor_rollout_ref.profiler.all_ranks=<span class="variable">$PROFILE_RANKS_ALL</span> \</span><br><span class="line">    actor_rollout_ref.profiler.discrete=<span class="variable">$DISCRETE</span> \</span><br><span class="line">    algorithm.use_kl_in_reward=False \</span><br><span class="line">    trainer.critic_warmup=0 \</span><br><span class="line">    trainer.logger=console \</span><br><span class="line">    trainer.project_name=<span class="string">&#x27;verl_grpo_example_gsm8k&#x27;</span> \</span><br><span class="line">    trainer.experiment_name=<span class="string">&#x27;deepseek_llm_7b_function_rm&#x27;</span> \</span><br><span class="line">    trainer.n_gpus_per_node=8 \</span><br><span class="line">    trainer.nnodes=1 \</span><br><span class="line">    trainer.save_freq=20 \</span><br><span class="line">    trainer.test_freq=5 \</span><br><span class="line">    ray_init.timeline_json_file=/workspace/record/ds_ray_timeline.json \</span><br><span class="line">    trainer.profile_steps=<span class="variable">$PROFILE_STEPS</span> \</span><br><span class="line">    trainer.profile_continuous_steps=<span class="variable">$PROFILE_CONTINUOUS_STEPS</span> \</span><br><span class="line">    trainer.total_epochs=1 2&gt;&amp;1 | <span class="built_in">tee</span> verl_demo.log </span><br></pre></td></tr></table></figure>
+<p>为了分析性能瓶颈，我们跑一个epoch即可。</p>
+<h1 id="ray-timeline"><a href="#ray-timeline" class="headerlink" title="ray.timeline:"></a>ray.timeline:</h1><p><img src="/2025/08/04/verl-perfornamce2/ray_timeline.png" alt="ray_timeline"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>横轴是时间，纵轴为8个rank，显示各个rank上worker的任务调度时间线。<br>Gsm8k的reward是基于规则的，没有reward model。reward和advantage直接计算，因此没有显示，这两个stage的时间也很短。由于是GRPO，也没有value的计算和critic的参数更新。基本过程为：rollout-&gt;(reward)-&gt;old_log_prob-&gt;ref_log_prob-&gt;(advantage)-&gt;update_actor。</p>
+<p><img src="/2025/08/04/verl-perfornamce2/GRPO.png" alt="GRPO"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>占据最多时间的部分是rollout和update_actor，在multi-turn等场景中，rollout在某些样本上会比较耗时，产生<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/1929748460212552414">长尾分布</a>的特点，因此rollout的优化比较受关注，update_actor优化地方感觉没那么多。从依赖关系上，reward、old_log_prob、ref_log_prob可以并行，不过需要model分开放置。在本实验中，各rank各阶段的时间基本对齐，没有出现因为某一个rank计算时间过长而让其他rank等待的情况。</p>
+<p><img src="/2025/08/04/verl-perfornamce2/ray_timeline_submit_task.png" alt="submit_task"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>ray与各个rank之间通信的时间很少，毕竟只需传递prompt等较少的数据，submit_task的耗时也很短。</p>
+<h1 id="Nsight-system"><a href="#Nsight-system" class="headerlink" title="Nsight system"></a>Nsight system</h1><p>本实验会生成10个nsys-rep文件，包括driver process（2个）和各个rank的process（8个），通过在代码中打桩的方式记录各阶段耗时。</p>
+<h2 id="dirver-process"><a href="#dirver-process" class="headerlink" title="dirver process"></a>dirver process</h2><p><img src="/2025/08/04/verl-perfornamce2/driver_process.png" alt="driver_process"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>一个epoch有7个step，每个step的耗时如下：  </p>
+<table>
+<thead>
+<tr>
+<th align="center">步骤</th>
+<th align="center">总耗时(s)</th>
+<th align="center">rollout(s)</th>
+<th align="center">reward(s)</th>
+<th align="center">old_log_prob(s)</th>
+<th align="center">ref_log_prob(s)</th>
+<th align="center">advantage(s)</th>
+<th align="center">update_actor(s)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">STEP1</td>
+<td align="center">278.7</td>
+<td align="center">81.8</td>
+<td align="center">0.86</td>
+<td align="center">31.3</td>
+<td align="center">38.6</td>
+<td align="center">0.16</td>
+<td align="center">125.8</td>
+</tr>
+<tr>
+<td align="center">STEP2</td>
+<td align="center">277.2</td>
+<td align="center">91.0</td>
+<td align="center">0.90</td>
+<td align="center">31.0</td>
+<td align="center">31.4</td>
+<td align="center">0.16</td>
+<td align="center">123.1</td>
+</tr>
+<tr>
+<td align="center">STEP3</td>
+<td align="center">249.4</td>
+<td align="center">73.7</td>
+<td align="center">0.96</td>
+<td align="center">29.1</td>
+<td align="center">30.0</td>
+<td align="center">0.19</td>
+<td align="center">115.4</td>
+</tr>
+<tr>
+<td align="center">STEP4</td>
+<td align="center">250.0</td>
+<td align="center">73.7</td>
+<td align="center">0.87</td>
+<td align="center">29.1</td>
+<td align="center">29.9</td>
+<td align="center">0.17</td>
+<td align="center">115.8</td>
+</tr>
+<tr>
+<td align="center">STEP5</td>
+<td align="center">236.8</td>
+<td align="center">68.5</td>
+<td align="center">0.94</td>
+<td align="center">27.9</td>
+<td align="center">28.7</td>
+<td align="center">0.17</td>
+<td align="center">110.4</td>
+</tr>
+<tr>
+<td align="center">STEP6</td>
+<td align="center">237.2</td>
+<td align="center">71.2</td>
+<td align="center">0.86</td>
+<td align="center">27.3</td>
+<td align="center">28.1</td>
+<td align="center">0.15</td>
+<td align="center">109.5</td>
+</tr>
+<tr>
+<td align="center">STEP7</td>
+<td align="center">233.8</td>
+<td align="center">68.0</td>
+<td align="center">0.88</td>
+<td align="center">26.9</td>
+<td align="center">27.8</td>
+<td align="center">0.15</td>
+<td align="center">108.4</td>
+</tr>
+<tr>
+<td align="center">平均</td>
+<td align="center">251.9</td>
+<td align="center">75.4(29.9%)</td>
+<td align="center">0.90(0.4%)</td>
+<td align="center">28.9(11.5%)</td>
+<td align="center">30.6(12.1%)</td>
+<td align="center">0.16(0.06%)</td>
+<td align="center">115.5(45.9%)</td>
+</tr>
+</tbody></table>
+<p>roollout约30%，update_tensor约45%，占比最高。</p>
+<h2 id="worker-process"><a href="#worker-process" class="headerlink" title="worker process"></a>worker process</h2><p>以rank 2为例，对step2和step3做profile，记录的timeline如下：</p>
+<p><img src="/2025/08/04/verl-perfornamce2/worker_process.png" alt="worker_process"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>除reward和advantage未显示外，其他阶段的耗时与driver process的耗时基本一致。<br>需要说明的是，本实验中，ray与各rank之间分发相关数据,通过DP_COMPUTE_PROTO，split数据至各DP组，各阶段完成后，再gather所有数据，即对于需要暴露给ray driver调度的函数，需要增加@register(dispatch_mode)的decorator，从而将driver里的输入dispatch给worker，并且对worker的返回值按照一定的规则collect起来，即：</p>
+<ul>
+<li>对于模型保存，每个worker的save path需要和driver给的save path一致；</li>
+<li>对于计算部分，在dp时要把数据切分给各个worker，计算完成后再合并起来给driver。<br>本实验的数据量不大，时间可以忽略，不过在其他数据量比较多的场景下可能成为瓶颈，或许去掉ray，完全采用分布式架构更高效。</li>
+</ul>
+<h3 id="rollout"><a href="#rollout" class="headerlink" title="rollout"></a>rollout</h3><p>VLLM根据prompt生成response:</p>
+<p><img src="/2025/08/04/verl-perfornamce2/rollout.png" alt="rollout"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>整体耗时约73.07s，各阶段如下：</p>
+<ul>
+<li>训练切换至推理(7.1%)<span title="遍历weight dict得到actor model的name和weight，根据name找到vllm model对应的子模块的param这些子模块在定义时已经实现了weight_loader函数，通过param_data.copy_(loaded_weight)的方式把actor的参数复制到vllm model里。这是因为vllm内部有一套llm的实现，而这套实现和现有的开源模型并不完全匹配，因此需要调整checkpoint的格式，例如qkv和moe的ffn层，实现是concat还是seperate的。所以针对这些，目前采用hard coding的形式定义了各种模型的loader的形式，如gpt2_dtensor_weight_loader/llama_dtensor_weight_loader/deepseekv2_dtensor_weight_loader等，将开源的模型和vllm内部的模型在weight和name上做对齐。因为vllm的模型使用了tensor parallel。在目前SPMD的编程模式下，需要确定每个rank会拿到weight的哪一部分，在哪个维度做切分。FULL_SHARD切出来的tensor并不规整，不能直接使用，需要先通过full_tensor()获取完整的tensor。" style="border-bottom:1px dotted">$^1$</span>：<ul>
+<li>reshard 5.2s：从fsdp训练模型同步参数至vllm引擎，NCCL为多次allGather。</li>
+</ul>
+</li>
+<li>preprocess data(忽略不计)<span title="非vllm组件采用dp=8并行，而vllm model采用dp4 tp2的混合并行。也就是vllm model只有4份完整模型，而其它的模型都是8份，同时接收8份不同的数据作为输入。tp rank之间接收相同输入，dp rank之间接收不同输入。所以这里的做法是把8份数据打包成4份，rank0-1的数据concat为data0，作为该rank0-1的vllm model的输入；rank2-3的数据concat为data1，作为rank2-3的vllm model输入，以此类推。假设之前每个rank数据的batch_size为4，则vllm model处理的batch_size为4*2=8。这也就是preprocess_data中的做法，把tp group内的数据打包在一起，作为相同的输入。在generate完成后，再做拆分，把这个bs=8的生成结果切回2个bs=4的小块，发回给各个rank。这样在后续dp=8的环境下，各个dp的输入又是不同的了。" style="border-bottom:1px dotted">$^2$</span>:<ul>
+<li>all_gather：在tp组内all gather数据，保证输入相同。</li>
+</ul>
+</li>
+<li>推理(87.3%)：<ul>
+<li>inference_engine 63.811s: vllm生成responses,NCCL为多次allReduce。</li>
+</ul>
+</li>
+<li>postprocess data(忽略不计):<ul>
+<li>chunk：每各rank丢弃多余的数据。</li>
+</ul>
+</li>
+<li>推理切换训练(5.3%)：<ul>
+<li>engine_sleep 0.83s<span title="生成后就释放掉vllm allocate的cache engine，直到下一次生成才重新build。本质是用时间换显存空间。一般默认开启，收益非常大。" style="border-bottom:1px dotted">$^3$</span>：offload模型权重，清除kv缓存。</li>
+<li>add_empty_cache(忽略不计)：各device上清除推理的缓存，保存随机状态<span title="在做sampling的时候会用到随机数，此时需要保证tp group内不同rank sample出来的结果是一致的，否则不同tp rank sample出不同的结果，在进行下一步的decoding计算时得到的结果无意义。因此这里创建了一个gen_random_states，对于同一个dp内的所有tp rank使用相同的seed。在__enter__时切换这个random state，结束后切换回之前的torch_random_states。" style="border-bottom:1px dotted">$^4$</span>。</li>
+<li>reduce_timing 3.07s：profile计算所有rank的平均生成时间，由于包含all reduce，因此需要同步，CUDA API显示时间主要花在MemcpyAsync上。</li>
+<li>GPU2CPU(忽略不计)：driver把数据拷贝回CPU。</li>
+</ul>
+</li>
+</ul>
+<h3 id="old-log-prob"><a href="#old-log-prob" class="headerlink" title="old_log_prob"></a>old_log_prob</h3><p>分成若干个micro_batch通过FSDP进行前向计算,获得entropy, log_probs：</p>
+<p><img src="/2025/08/04/verl-perfornamce2/compute_log_prob.png" alt="old_log_prob"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>整体耗时28.6s:</p>
+<ul>
+<li>preprocess data(忽略不计)：ray通过DP_COMPUTE将数据shard至各ranks后，如果用户定义了sp group，就all gather，本实验中sp&#x3D;1，因此不考虑。</li>
+<li>forward$\times n$: 前向计算n次，每次约耗时3s，NCCL操作为多次allGather。</li>
+<li>postprocess data(忽略不计)：如果用户定义了sp group，就chunk，本实验不需要。</li>
+</ul>
+<h3 id="ref-log-prob"><a href="#ref-log-prob" class="headerlink" title="ref_log_prob"></a>ref_log_prob</h3><p>整体耗时29.5s，除了使用reference model外，其余与old_log_prob计算类似。</p>
+<p><img src="/2025/08/04/verl-perfornamce2/compute_ref_log_prob.png" alt="ref_log_prob"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h3 id="update-actor"><a href="#update-actor" class="headerlink" title="update_actor"></a>update_actor</h3><p>整体耗时114.8s，分成若干mini_batch重复训练若干轮.每个mini_batch再分成micro_batch实际计算:</p>
+<p><img src="/2025/08/04/verl-perfornamce2/update_actor.png" alt="ref_log_prob"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<ul>
+<li>preprocess data(忽略不计)：ray通过DP_COMPUTE将数据shard至各ranks后，如果用户定义了sp group，就all gather，本实验不考虑。</li>
+<li>forward$\times n$：每次约耗时3s，NCCL操作为多次allGather。</li>
+<li>cal_loss: 每次约耗时0.2s。计算policy_loss和kl_loss。</li>
+<li>backward$\times n$：每次约耗时10s，NCCL操作为多次reduceScatter。</li>
+<li>optimizer_step(忽略不计)：每个mini_batch训完后执行梯度聚合,NCCL操作为多次allReduce。</li>
+<li>postprocess data(忽略不计)：如果用户定义了sp group，就chunk，本实验不考虑。</li>
+</ul>
+<p>这里的bach_size含义有些绕，具体解释如下：</p>
+<p><img src="/2025/08/04/verl-perfornamce2/bach_size.png" alt="ref_log_prob"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h1 id="瓶颈分析"><a href="#瓶颈分析" class="headerlink" title="瓶颈分析"></a>瓶颈分析</h1><ul>
+<li>total_num_tokens:1242547</li>
+<li>time_per_step:300.7863169736229s</li>
+<li>throughput:516.3744699650698 tokens&#x2F;s</li>
+</ul>
+<ol>
+<li>rollout: 各rank的时间基本对齐，相差大概3~4s，不过如果其他case（如multi-turn），有可能出现response length在某些rank上过长的<a target="_blank" rel="noopener" href="https://github.com/zhaochenyang20/Awesome-ML-SYS-Tutorial/tree/main/rlhf/partial-rollout">长尾效应</a>，产生空泡，可以使用partial rollout，对长response进行切分，尽量均衡各rank的负载。</li>
+<li>资源利用：放置方式为colcate，因此不会闲置，但是时分复用的方式推理和训练无法并行，或许可以尝试把推理和训练放在不同的rank上，应用异步RL算法加速，但这样保证不了on-policy，性能受影响。</li>
+<li>ray每次一个stage后都需要把数据拿回driver process再分发下去，在batch很大的情况下可能影响效率，像DistFlow一样完全分布式的策略或许更高效。</li>
+</ol>
+<h1 id="后续计划"><a href="#后续计划" class="headerlink" title="后续计划"></a>后续计划</h1><ul>
+<li>做实验分析muti-turn情况下的性能，重点关注长尾效应，从数据角度做sample颗粒度的profile，思考是否有优化的可能。</li>
+<li>看看其他框架在解决什么问题（准备看slime）。</li>
+<li>读异步 off-policy的RL相关论文，看看性能会影响多少。</li>
+</ul>
+<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><ol>
+<li><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/30876678559">从零开始的verl框架解析</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/zhaochenyang20/Awesome-ML-SYS-Tutorial/tree/main/rlhf/partial-rollout">Kimi K1.5: Long Context RL 的成功实践</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2409.13221">Optimizing rlhf training for large language models with stage fusion</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2409.13221">DistFlow: A Fully Distributed RL Framework for  Scalable and Efficient LLM Post-Training</a></li>
+<li><a target="_blank" rel="noopener" href="https://verl.readthedocs.io/en/latest/perf/nsight_profiling.html">NVIDIA Nsight Systems profiling in verl</a></li>
+</ol>
+
+</article>
+    
+    
+
+</div>
+<div class="trm-post-next-prev row">
+    <div class="col-lg-12">
+        <!-- title -->
+        <h5 class="trm-title-with-divider">
+            其他文章
+            <span data-number="02"></span>
+        </h5>
+    </div>
+    
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/08/02/verl_performance1/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/RLHF/">
+                    RLHF
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/08/02/verl_performance1/" class="trm-anima-link">
+                    verl性能分析（一）-工具介绍
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/08/02</li>
+                <li>20:12</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+</div>
+
+    
+
+
+
+                    <div class="trm-divider footer-divider"></div>
+
+                    <!-- footer -->
+                    <footer class="trm-footer-card trm-scroll-animation">
+
+    
+
+    
+
+    
+        <div class="trm-footer-item">
+            <span>
+                由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 v7.3.0
+            </span>
+            <span class="footer-separator" data-separator=" | "></span>
+            <span> 
+                主题 - 
+                <a rel="noopener" href='https://github.com/MaLuns/hexo-theme-async' target='_blank'>Async</a>
+                v2.2.6
+            </span>
+        </div>
+      
+
+     
+
+     
+</footer>
+                    <!-- footer end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <!-- body end -->
+
+            
+
+            
+<div class="trm-fixed-container">
+    
+    
+        <div class="trm-fixed-btn" data-title="阅读模式" onclick="asyncFun.switchReadMode()">
+            <i class="iconfont fas fa-book-reader"></i>
+        </div>
+    
+    
+    <div id="trm-back-top" class="trm-fixed-btn" data-title="回到顶部">
+        <i class="iconfont fas fa-arrow-up"></i>
+    </div>
+</div>
+        </div>
+      </div>
+      <!-- scroll container end -->
+  </div>
+  <!-- app wrapper end -->
+
+  
+  <!-- Plugin -->
+
+
+
+
+    
+    
+<script src="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+    
+
+    
+
+    
+
+    <!-- 数学公式 -->
+    
+
+    <!-- 评论插件 -->
+    
+        
+
+        
+    
+
+		
+
+
+
+
+    <!-- Service Worker -->
+    
+    <!-- baidu push -->
+    
+
+
+<script id="async-script" src="/js/main.js?v=2.2.6"></script>
+
+<!-- CDN -->
+
+
+    
+
+    
+
+    
+
+
+
+</body>
+
+</html>

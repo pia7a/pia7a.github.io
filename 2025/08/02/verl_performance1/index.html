@@ -7,18 +7,19 @@
 <meta name="full-screen" content="yes">
 <meta name="theme-color" content="#317EFB" />
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
-<meta name="description" content="动机Verl作为知名的RLHF框架，在0.5版本增加了性能分析工具，支持ray.timeline和nsight system profiler，这对于希望通过分析性能来优化框架的用户来说是非常重要的。为了搞懂如何对Verl实验准确分析，从配置文件、结果和代码讲解。 ray.timeline这个是Verl从0.4开始支持的，属于ray的原生功能。它只会记录Ray任务调度和执行的事件（即ray.rem">
+<meta name="description" content="动机Verl作为主流的RLHF框架，在0.5版本增加了性能分析工具，支持ray.timeline和nsight system profiler，这对于希望通过分析性能来优化框架的用户来说是非常重要的。为了搞懂如何对Verl实验准确分析，从配置文件、结果和代码分析。 ray.timeline这个是Verl从0.4开始支持的，属于ray的原生功能。它只会记录Ray任务调度和执行的事件（即ray.rem">
 <meta property="og:type" content="article">
-<meta property="og:title" content="verl性能分析工具介绍">
-<meta property="og:url" content="http://example.com/2025/08/02/verl_performance/index.html">
+<meta property="og:title" content="verl性能分析（一）-工具介绍">
+<meta property="og:url" content="http://example.com/2025/08/02/verl_performance1/index.html">
 <meta property="og:site_name" content="Hexo">
-<meta property="og:description" content="动机Verl作为知名的RLHF框架，在0.5版本增加了性能分析工具，支持ray.timeline和nsight system profiler，这对于希望通过分析性能来优化框架的用户来说是非常重要的。为了搞懂如何对Verl实验准确分析，从配置文件、结果和代码讲解。 ray.timeline这个是Verl从0.4开始支持的，属于ray的原生功能。它只会记录Ray任务调度和执行的事件（即ray.rem">
+<meta property="og:description" content="动机Verl作为主流的RLHF框架，在0.5版本增加了性能分析工具，支持ray.timeline和nsight system profiler，这对于希望通过分析性能来优化框架的用户来说是非常重要的。为了搞懂如何对Verl实验准确分析，从配置文件、结果和代码分析。 ray.timeline这个是Verl从0.4开始支持的，属于ray的原生功能。它只会记录Ray任务调度和执行的事件（即ray.rem">
 <meta property="og:locale">
 <meta property="og:image" content="http://example.com/img/404.jpg">
 <meta property="og:image" content="http://example.com/img/404.jpg">
 <meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
 <meta property="article:published_time" content="2025-08-02T12:12:46.000Z">
-<meta property="article:modified_time" content="2025-08-03T06:07:13.859Z">
+<meta property="article:modified_time" content="2025-08-05T11:11:26.996Z">
 <meta property="article:author" content="John Doe">
 <meta property="article:tag" content="Verl框架">
 <meta property="article:tag" content="性能分析">
@@ -28,7 +29,7 @@
     <meta name="keywords" content="RLHF,Verl框架,性能分析">
 
 
-<title >verl性能分析工具介绍</title>
+<title >verl性能分析（一）-工具介绍</title>
 
 <!-- Favicon -->
 
@@ -67,7 +68,7 @@
 
 <!-- Variable -->
 <script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
-<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-08-03 14:07:13"};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-08-05 19:11:26"};</script>
 
 <!-- Theme mode css -->
 <link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
@@ -230,7 +231,7 @@
                             Hi my new friend!
                         </div>
                         <h1 class="trm-mb-30 trm-hsmb-font">
-                            verl性能分析工具介绍
+                            verl性能分析（一）-工具介绍
                         </h1>
 
                         
@@ -338,13 +339,15 @@
 </div>
 <div class="trm-card ">
     <article id="article-container" class="trm-publication">
-    <h1 id="动机"><a href="#动机" class="headerlink" title="动机"></a>动机</h1><p>Verl作为知名的RLHF框架，在0.5版本增加了性能分析工具，支持ray.timeline和nsight system profiler，这对于希望通过分析性能来优化框架的用户来说是非常重要的。为了搞懂如何对Verl实验准确分析，从配置文件、结果和代码讲解。</p>
+    <h1 id="动机"><a href="#动机" class="headerlink" title="动机"></a>动机</h1><p>Verl作为主流的RLHF框架，在0.5版本增加了性能分析工具，支持ray.timeline和nsight system profiler，这对于希望通过分析性能来优化框架的用户来说是非常重要的。为了搞懂如何对Verl实验准确分析，从配置文件、结果和代码分析。</p>
 <h1 id="ray-timeline"><a href="#ray-timeline" class="headerlink" title="ray.timeline"></a>ray.timeline</h1><p>这个是Verl从0.4开始支持的，属于ray的原生功能。它只会记录Ray任务调度和执行的事件（即ray.remote调度的类中方法），生成的时间线比较粗糙，无法捕捉CUDA kernel等信息，主要展示代码的执行逻辑。</p>
 <h2 id="配置"><a href="#配置" class="headerlink" title="配置"></a>配置</h2><p>在配置文件中，需要开启timeline_json_file选项，指定生成的时间线文件路径。</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># configs related to ray initialization</span></span><br><span class="line"><span class="attr">ray_init:</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># Number of CPUs for Ray. Use a fixed number instead of null when using SLURM.</span></span><br><span class="line">  <span class="attr">num_cpus:</span> <span class="literal">null</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># Path to save Ray timeline JSON for performance profiling</span></span><br><span class="line">  <span class="attr">timeline_json_file:</span> <span class="literal">null</span></span><br></pre></td></tr></table></figure>
 <h2 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">ray.get(runner.run.remote(config))</span><br><span class="line"></span><br><span class="line"><span class="comment"># [Optional] get the path of the timeline trace file from the configuration, default to None</span></span><br><span class="line"><span class="comment"># This file is used for performance analysis</span></span><br><span class="line">timeline_json_file = config.ray_init.get(<span class="string">&quot;timeline_json_file&quot;</span>, <span class="literal">None</span>)</span><br><span class="line"><span class="keyword">if</span> timeline_json_file:</span><br><span class="line">    ray.timeline(filename=timeline_json_file)</span><br></pre></td></tr></table></figure>
-<h2 id="结果"><a href="#结果" class="headerlink" title="结果"></a>结果</h2><p>生成的时间线文件（json格式）可以使用<a target="_blank" rel="noopener" href="https://ui.perfetto.dev/">perfetoo</a>打开，展示代码的执行逻辑。</p>
-<p><img src="/2025/08/02/verl_performance/timeline.png" alt="timeline"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h2 id="结果"><a href="#结果" class="headerlink" title="结果"></a>结果</h2><p>使用如下脚本运行Verl实验：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Nsight profiling configuration</span></span><br><span class="line">PROFILE_STEPS=<span class="string">&quot;[1]&quot;</span> <span class="comment"># or [] or null</span></span><br><span class="line">PROFILE_RANKS_ALL=True <span class="comment"># or True</span></span><br><span class="line">PROFILE_RANKS=[0]</span><br><span class="line">DISCRETE=False <span class="comment"># or True</span></span><br><span class="line"> </span><br><span class="line"> </span><br><span class="line"> PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \</span><br><span class="line"> data.train_files=/workspace/dataset/gsm8k/train.parquet \</span><br><span class="line"> data.val_files=/workspace/dataset/gsm8k/test.parquet \</span><br><span class="line"> data.train_batch_size=256 \</span><br><span class="line"> data.max_prompt_length=512 \</span><br><span class="line"> data.max_response_length=256 \</span><br><span class="line"> actor_rollout_ref.model.path=/workspace/model/qwen \</span><br><span class="line"> actor_rollout_ref.actor.optim.lr=1e-6 \</span><br><span class="line"> actor_rollout_ref.actor.ppo_mini_batch_size=64 \</span><br><span class="line"> actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=4 \</span><br><span class="line"> actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=8 \</span><br><span class="line"> actor_rollout_ref.rollout.tensor_model_parallel_size=1 \</span><br><span class="line"> actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \</span><br><span class="line"> actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \</span><br><span class="line"> actor_rollout_ref.rollout.name=vllm \</span><br><span class="line"> actor_rollout_ref.profiler.ranks=<span class="variable">$PROFILE_RANKS</span> \</span><br><span class="line"> actor_rollout_ref.profiler.all_ranks=<span class="variable">$PROFILE_RANKS_ALL</span> \</span><br><span class="line"> actor_rollout_ref.profiler.discrete=<span class="variable">$DISCRETE</span> \</span><br><span class="line"> critic.optim.lr=1e-5 \</span><br><span class="line"> critic.model.path=/workspace/model/qwen \</span><br><span class="line"> critic.ppo_micro_batch_size_per_gpu=4 \</span><br><span class="line"> critic.profiler.ranks=<span class="variable">$PROFILE_RANKS</span> \</span><br><span class="line"> critic.profiler.all_ranks=<span class="variable">$PROFILE_RANKS_ALL</span> \</span><br><span class="line"> critic.profiler.discrete=<span class="variable">$DISCRETE</span> \</span><br><span class="line"> algorithm.kl_ctrl.kl_coef=0.001 \</span><br><span class="line"> trainer.experiment_name=qwen-5 \</span><br><span class="line"> trainer.logger=console \</span><br><span class="line"> trainer.val_before_train=False \</span><br><span class="line"> trainer.n_gpus_per_node=1 \</span><br><span class="line"> trainer.nnodes=1 \</span><br><span class="line"> trainer.save_freq=10 \</span><br><span class="line"> trainer.test_freq=10000 \</span><br><span class="line"> ray_init.timeline_json_file=/workspace/ray_timeline.json \</span><br><span class="line"> trainer.profile_steps=<span class="variable">$PROFILE_STEPS</span> \</span><br><span class="line"> trainer.total_epochs=1 2&gt;&amp;1 | <span class="built_in">tee</span> verl_demo.log</span><br></pre></td></tr></table></figure>
+<p>生成的时间线文件（json格式）可以使用<a target="_blank" rel="noopener" href="https://ui.perfetto.dev/">perfetoo</a>打开，展示代码的执行逻辑。</p>
+<p><img src="/2025/08/02/verl_performance1/timeline.png" alt="timeline"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
 <p>可以看到像reward和adv的计算都没有显示，这是因为本例中它们没有调用worker而是在driver process中直接算（轻量级任务），因此ray就无法记录。</p>
 <h1 id="nsight-system-profiler"><a href="#nsight-system-profiler" class="headerlink" title="nsight system profiler"></a>nsight system profiler</h1><p>可以提供各个进程的性能分析结果，包括CPU和GPU等，信息颗粒度比ray.timeline更细致，<a target="_blank" rel="noopener" href="https://verl.readthedocs.io/en/latest/perf/nsight_profiling.html">官方文档</a>有相关说明。</p>
 <h2 id="配置-1"><a href="#配置-1" class="headerlink" title="配置"></a>配置</h2><p>需要在yaml文件中指定相关参数，分为Global profiling control和Worker process profiling两部分，前者配置全局的profiler，后者配置每个worker进程的profiler。</p>
@@ -373,11 +376,14 @@
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># verl.workers.actor.dp_actor.py</span></span><br><span class="line"><span class="keyword">with</span> marked_timer(<span class="string">&quot;F&quot;</span>, color=<span class="string">&quot;green&quot;</span>):</span><br><span class="line">    entropy, log_prob = <span class="variable language_">self</span>._forward_micro_batch(</span><br><span class="line">        model_inputs, temperature=temperature, calculate_entropy=calculate_entropy</span><br><span class="line">    )</span><br><span class="line">    ......</span><br><span class="line"><span class="keyword">with</span> marked_timer(<span class="string">&quot;B&quot;</span>, color=<span class="string">&quot;green&quot;</span>):</span><br><span class="line">    loss.backward()   </span><br></pre></td></tr></table></figure>
 <p>这样就可以分析任意细粒度的代码块时间了，至于GPU占用以及CUDA kernel等，在Nsight system GUI中可以查看。</p>
 <h2 id="结果-1"><a href="#结果-1" class="headerlink" title="结果"></a>结果</h2><p>生成.nsy-rep文件，需要使用Nsight system GUI查看，文件默认存储路径为&#x2F;tmp&#x2F;ray&#x2F;session_latest&#x2F;logs&#x2F;nsight&#x2F;。我的理解是一个进程一个文件。以单机单卡的情况下为例，如果跑Verl中quick start的例子，，一个是controller进程的，一个是workers进程的（如果配置文件中discrete为True，那么每个role会生成一个文件）。<br>在本例中，生成了三个文件，不知道为什么多了一个，用Nsight system后看到了driver process和worker process。</p>
-<h3 id="driver-process-1"><a href="#driver-process-1" class="headerlink" title="driver process"></a>driver process</h3><p><img src="/2025/08/02/verl_performance/drive_process.png" alt="driver_process"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h3 id="driver-process-1"><a href="#driver-process-1" class="headerlink" title="driver process"></a>driver process</h3><p><img src="/2025/08/02/verl_performance1/drive_process.png" alt="driver_process"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
 <p>可以看到，由于没有torch.cuda.profiler.start()，只有NVTX标记。</p>
-<h3 id="worker-process"><a href="#worker-process" class="headerlink" title="worker process"></a>worker process</h3><p><img src="/2025/08/02/verl_performance/worker_process.png" alt="worker_process"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h3 id="worker-process"><a href="#worker-process" class="headerlink" title="worker process"></a>worker process</h3><p><img src="/2025/08/02/verl_performance1/worker_process.png" alt="worker_process"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
 <p>可以看到CUDA相关信息被记录，最下面还有自己打上的标记F(forward)和B(backward)。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>在代码中插桩可以方便分析性能瓶颈，Nsight profile挺好用的。不过我不太理解为什么生成了三个nsys-rep文件，等后面跑完更大的实验再来分析。</p>
+<h1 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h1><p>我们跑更大的实验看看结果，硬件条件为8*a6000，脚本如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Nsight profiling configuration</span></span><br><span class="line">PROFILE_STEPS=<span class="string">&quot;[2,3]&quot;</span> <span class="comment"># or [] or null</span></span><br><span class="line">PROFILE_RANKS_ALL=True <span class="comment"># or True</span></span><br><span class="line">PROFILE_RANKS=[0,1,2,3,4,5,6,7]</span><br><span class="line">DISCRETE=False <span class="comment"># or True</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">set</span> -x</span><br><span class="line"></span><br><span class="line">python3 -m verl.trainer.main_ppo \</span><br><span class="line">    algorithm.adv_estimator=grpo \</span><br><span class="line">    data.train_files=/workspace/dataset/gsm8k/train.parquet \</span><br><span class="line">    data.val_files=/workspace/dataset/gsm8k/test.parquet \</span><br><span class="line">    data.train_batch_size=1024 \</span><br><span class="line">    data.max_prompt_length=512 \</span><br><span class="line">    data.max_response_length=1024 \</span><br><span class="line">    data.filter_overlong_prompts=True \</span><br><span class="line">    data.truncation=<span class="string">&#x27;error&#x27;</span> \</span><br><span class="line">    actor_rollout_ref.model.path=/workspace/model/ds_7b_chat \</span><br><span class="line">    actor_rollout_ref.actor.optim.lr=1e-6 \</span><br><span class="line">    actor_rollout_ref.model.use_remove_padding=True \</span><br><span class="line">    actor_rollout_ref.actor.ppo_mini_batch_size=256 \</span><br><span class="line">    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=80 \</span><br><span class="line">    actor_rollout_ref.actor.use_kl_loss=True \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_coef=0.001 \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_type=low_var_kl \</span><br><span class="line">    actor_rollout_ref.actor.entropy_coeff=0 \</span><br><span class="line">    actor_rollout_ref.model.enable_gradient_checkpointing=True \</span><br><span class="line">    actor_rollout_ref.actor.fsdp_config.param_offload=False \</span><br><span class="line">    actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \</span><br><span class="line">    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=160 \</span><br><span class="line">    actor_rollout_ref.rollout.tensor_model_parallel_size=2 \</span><br><span class="line">    actor_rollout_ref.rollout.name=vllm \</span><br><span class="line">    actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \</span><br><span class="line">    actor_rollout_ref.rollout.n=5 \</span><br><span class="line">    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=160 \</span><br><span class="line">    actor_rollout_ref.ref.fsdp_config.param_offload=True \</span><br><span class="line">    actor_rollout_ref.profiler.ranks=<span class="variable">$PROFILE_RANKS</span> \</span><br><span class="line">    actor_rollout_ref.profiler.all_ranks=<span class="variable">$PROFILE_RANKS_ALL</span> \</span><br><span class="line">    actor_rollout_ref.profiler.discrete=<span class="variable">$DISCRETE</span> \</span><br><span class="line">    algorithm.use_kl_in_reward=False \</span><br><span class="line">    trainer.critic_warmup=0 \</span><br><span class="line">    trainer.logger=console \</span><br><span class="line">    trainer.project_name=<span class="string">&#x27;verl_grpo_example_gsm8k&#x27;</span> \</span><br><span class="line">    trainer.experiment_name=<span class="string">&#x27;deepseek_llm_7b_function_rm&#x27;</span> \</span><br><span class="line">    trainer.n_gpus_per_node=8 \</span><br><span class="line">    trainer.nnodes=1 \</span><br><span class="line">    trainer.save_freq=20 \</span><br><span class="line">    trainer.test_freq=5 \</span><br><span class="line">    ray_init.timeline_json_file=/workspace/record/ds_ray_timeline.json \</span><br><span class="line">    trainer.profile_steps=<span class="variable">$PROFILE_STEPS</span> \</span><br><span class="line">    trainer.total_epochs=1 <span class="variable">$@</span></span><br></pre></td></tr></table></figure>
+<h2 id="结果-2"><a href="#结果-2" class="headerlink" title="结果"></a>结果</h2><p>生成2$\times$8+2$\times$1&#x3D;18个nsys-rep文件:<br><img src="/2025/08/02/verl_performance1/nsight_ds7b.png" alt="nsight_ds7b"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'><br>可见driver上会生成2个，各个rank上各有2个，如果设置连续porfile，那么各rank上就只有一个文件。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>利用Nsight在代码中插桩可以方便分析性能瓶颈，颗粒度更小，自由度更高。</p>
 
 </article>
     
@@ -392,6 +398,37 @@
             <span data-number="02"></span>
         </h5>
     </div>
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/08/04/verl-perfornamce2/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/RLHF/">
+                    RLHF
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/08/04/verl-perfornamce2/" class="trm-anima-link">
+                    verl性能分析（二）-实验分析
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/08/04</li>
+                <li>20:35</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
     
     
 </div>
