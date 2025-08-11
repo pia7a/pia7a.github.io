@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="x5-fullscreen" content="true">
+<meta name="full-screen" content="yes">
+<meta name="theme-color" content="#317EFB" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
+<meta name="description" content="目的对RL框架（Verl）中的MoE LLM做性能分析.  统计MoE专家之间all-to-all通信耗时在推理\训练时间中占比，是否存在通信-计算重叠加速的空间。 统计多模态LLM训练时,ray中driver process和各rank之间dispatch与collect数据的时间占比.不过,跨&#x2F;同节点分开Ray 传输数据的方式不同,在同节点是共享内存传输，跨节点是 TCP，差异很大,">
+<meta property="og:type" content="article">
+<meta property="og:title" content="verl性能分析（三）-实验分析">
+<meta property="og:url" content="http://example.com/2025/08/10/verl-perfornamce3/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="目的对RL框架（Verl）中的MoE LLM做性能分析.  统计MoE专家之间all-to-all通信耗时在推理\训练时间中占比，是否存在通信-计算重叠加速的空间。 统计多模态LLM训练时,ray中driver process和各rank之间dispatch与collect数据的时间占比.不过,跨&#x2F;同节点分开Ray 传输数据的方式不同,在同节点是共享内存传输，跨节点是 TCP，差异很大,">
+<meta property="og:locale">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="article:published_time" content="2025-08-10T02:19:03.000Z">
+<meta property="article:modified_time" content="2025-08-11T12:09:00.916Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="Verl框架">
+<meta property="article:tag" content="性能分析">
+<meta property="article:tag" content="MOE">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/404.jpg">
+
+    <meta name="keywords" content="RLHF,Verl框架,性能分析">
+
+
+<title >verl性能分析（三）-实验分析</title>
+
+<!-- Favicon -->
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='16x16' ></link>
+
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='32x32' ></link>
+
+
+
+
+<!-- Plugin -->
+
+
+
+
+    
+<link rel="stylesheet" href="/css/plugins/bootstrap.row.css">
+
+    
+<link rel="stylesheet" href="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.css">
+
+    
+    
+
+
+
+
+<!-- Icon -->
+
+    
+<link rel="stylesheet" href="/css/plugins/font-awesome.min.css">
+
+
+
+
+<!-- Variable -->
+<script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-08-11 20:09:00"};</script>
+
+<!-- Theme mode css -->
+<link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
+<script>
+    let defaultMode = ASYNC_CONFIG.theme.default !=='auto' ?  ASYNC_CONFIG.theme.default : (window.matchMedia("(prefers-color-scheme: light)").matches ? 'style-light' : 'style-dark')
+    let catchMode = localStorage.getItem('theme-mode') || defaultMode;
+    let type = catchMode === 'style-dark' ? 'add' : 'remove';
+    document.documentElement.classList[type]('dark')
+</script>
+
+<!-- CDN -->
+
+
+    
+    
+
+
+
+<!-- Site Analytics -->
+
+ 
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+
+  <!-- app wrapper -->
+  <div class="trm-app-frame">
+
+    <!-- page preloader -->
+    <div class="trm-preloader">
+    <div class="trm-holder">
+        <div class="preloader">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+</div>
+    <!-- page preloader end -->
+
+    <!-- change mode preloader -->
+    <div class="trm-mode-swich-animation-frame">
+    <div class="trm-mode-swich-animation">
+        <i class="i-sun"><i class="iconfont far fa-sun"></i></i>
+        <div class="trm-horizon"></div>
+        <i class="i-moon"><i class="iconfont far fa-moon"></i></i>
+    </div>
+</div>
+    <!-- change mode preloader end -->
+
+      <!-- scroll container -->
+      <div id="trm-dynamic-content" class="trm-swup-animation">
+        <div id="trm-scroll-container" class="trm-scroll-container" style="opacity: 0">
+            <!-- top bar -->
+            <header class="trm-top-bar">
+	<div class="container">
+		<div class="trm-left-side">
+			<!-- logo -->
+<a href="/" class="trm-logo-frame trm-anima-link">
+    
+        <img alt="logo" src="/img/favicon.svg">
+    
+    
+        <div class="trm-logo-text">
+            Async<span>zhiqiang</span>
+        </div>
+    
+</a>
+<!-- logo end -->
+		</div>
+		<div class="trm-right-side">
+			<!-- menu -->
+<div class="trm-menu">
+    <nav>
+        <ul>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/" target="">
+                    首页
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/archives/" target="">
+                    时间线
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/tags/" target="">
+                    标签
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/categories" target="">
+                    分类
+                </a>
+                
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+<!-- menu end -->
+			
+    <!-- mode switcher place -->
+    <div class="trm-mode-switcher-place">
+        <div class="trm-mode-switcher">
+            <i class="iconfont far fa-sun"></i>
+            <input class="tgl tgl-light" id="trm-swich" type="checkbox">
+            <label class="trm-swich" for="trm-swich"></label>
+            <i class="iconfont far fa-moon"></i>
+        </div>
+    </div>
+    <!-- mode switcher place end -->
+
+			
+		</div>
+		<div class="trm-menu-btn">
+			<span></span>
+		</div>
+	</div>
+</header>
+            <!-- top bar end -->
+
+            <!-- body -->
+            
+<div class="trm-content-start">
+    <!-- banner -->
+    <div class="trm-banner">
+    
+    <!-- banner cover -->
+    <img style="object-position:top;object-fit:cover;" alt="banner" class="trm-banner-cover" src="https://pic1.zhimg.com/v2-b3c2c6745b9421a13a3c4706b19223b3_r.jpg">
+    <!-- banner cover end -->
+    
+
+    <!-- banner content -->
+    <div class="trm-banner-content trm-overlay">
+        <div class="container">
+            <div class="row">
+                
+                <div class="col-lg-4"></div>
+                
+                <div class="col-lg-8">
+
+                    <!-- banner title -->
+                    <div class="trm-banner-text ">
+                        <div class="trm-label trm-mb-20">
+                            more paper, more fun
+                        </div>
+                        <h1 class="trm-mb-30 trm-hsmb-font">
+                            verl性能分析（三）-实验分析
+                        </h1>
+
+                        
+                            <ul class="trm-breadcrumbs trm-label">
+                                <li>
+                                    <a href="/" class="trm-anima-link">Home</a>
+                                </li>
+                                <li>
+                                    <span>
+                                        2025
+                                    </span>
+                                </li>
+                            </ul>
+                        
+                    </div>
+                    <!-- banner title end -->
+
+                    <!-- scroll hint -->
+                    <span id="scroll-triger" class="trm-scroll-hint-frame">
+                        <div class="trm-scroll-hint"></div>
+                        <span class="trm-label">Scroll down</span>
+                    </span>
+                    <!-- scroll hint end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- banner content end -->
+</div>
+    <!-- banner end -->
+    <div class="container">
+        <div class="row">
+            
+                <div class="trm-page-sidebar col-lg-4 hidden-sm">
+                    <!-- main card -->
+                    <div class="trm-main-card-frame trm-sidebar">
+    <div class="trm-main-card"> 
+        <!-- card header -->
+<div class="trm-mc-header">
+    <div class="trm-avatar-frame trm-mb-20">
+        <img alt="Avatar" class="trm-avatar" src="/img/avatar.jpg">
+    </div>
+    <h5 class="trm-name trm-mb-15">
+        看雪
+    </h5>
+    
+</div>
+<!-- card header end -->
+        <!-- sidebar social -->
+
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<div class="trm-social">
+    
+        <a href="https://github.com" title="Github" rel="nofollow" target="_blank">
+            <i class="iconfont fab fa-github"></i>
+        </a>
+    
+</div>
+
+<!-- sidebar social end -->
+        <!-- info -->
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<ul class="trm-table trm-mb-20">
+    
+        <li>
+            <div class="trm-label">
+                Residence:
+            </div>
+            <div class="trm-label trm-label-light">
+                Mars
+            </div>
+        </li>
+    
+</ul>
+<!-- info end -->
+
+        
+    </div>
+</div>
+                    <!-- main card end -->
+                </div>
+            
+            <div class="trm-page-content col-lg-8">
+                <div id="trm-content" class="trm-content">
+                    <div class="trm-post-info row hidden-sm">
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-calendar-alt trm-icon"></i><br>
+            08/10
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-clock trm-icon"></i><br>
+            10:19
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div id="post-author" class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-user trm-icon"></i><br>
+            John Doe
+        </div>
+    </div>
+</div>
+<div class="trm-card ">
+    <article id="article-container" class="trm-publication">
+    <h1 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h1><p>对RL框架（Verl）中的MoE LLM做性能分析.</p>
+<ol>
+<li>统计MoE专家之间all-to-all通信耗时在推理\训练时间中占比，是否存在通信-计算重叠加速的空间。</li>
+<li>统计多模态LLM训练时,ray中driver process和各rank之间dispatch与collect数据的时间占比.<br>不过,跨&#x2F;同节点分开Ray 传输数据的方式不同,在同节点是共享内存传输，跨节点是 TCP，差异很大,目前仅为单机8卡实验.</li>
+</ol>
+<h1 id="前置工作"><a href="#前置工作" class="headerlink" title="前置工作"></a>前置工作</h1><ol>
+<li>选择合适的MoE与多模态模型.</li>
+<li>wrap VLLM和Megatron中Export之间通信函数;wrap ray dispatch和collect数据的函数.</li>
+<li>nsys-rep文件转sqlite或json,脚本分析wrap后插桩获取的数据.</li>
+</ol>
+<h1 id="实验分析"><a href="#实验分析" class="headerlink" title="实验分析"></a>实验分析</h1><h2 id="多模态"><a href="#多模态" class="headerlink" title="多模态"></a>多模态</h2><h3 id="简短结论"><a href="#简短结论" class="headerlink" title="简短结论"></a>简短结论</h3><p>与纯文本数据相比,多模态(本实验为image+text)显然会造成driver process与各rank的通信时间增大.</p>
+<h4 id="timeline分析"><a href="#timeline分析" class="headerlink" title="timeline分析"></a>timeline分析</h4><p>记录driver process在step2的timeline:</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>耗时(s)</th>
+<th>占比 (%)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>step</strong></td>
+<td>277.9</td>
+<td><strong>100.00</strong></td>
+</tr>
+<tr>
+<td>├─ <strong>rollout</strong></td>
+<td>83.00</td>
+<td><strong>29.87</strong></td>
+</tr>
+<tr>
+<td>│  ├─ dispatch</td>
+<td>4e-3</td>
+<td>忽略</td>
+</tr>
+<tr>
+<td>│  ├─ submit_execute</td>
+<td>0.36</td>
+<td>0.13</td>
+</tr>
+<tr>
+<td>│  ├─ <strong>get_output</strong></td>
+<td>82.48</td>
+<td><strong>29.68</strong></td>
+</tr>
+<tr>
+<td>│  └─ collect</td>
+<td>0.16</td>
+<td>0.06</td>
+</tr>
+<tr>
+<td>│     reward</td>
+<td>1.31</td>
+<td>0.5</td>
+</tr>
+<tr>
+<td>├─ old_log_prob</td>
+<td>30.01</td>
+<td>10.8</td>
+</tr>
+<tr>
+<td>│  ├─ dispatch</td>
+<td>6e-3</td>
+<td>忽略</td>
+</tr>
+<tr>
+<td>│  ├─ submit_execute</td>
+<td>4.25</td>
+<td>1.5</td>
+</tr>
+<tr>
+<td>│  ├─ get_output</td>
+<td>25.72</td>
+<td>9.3</td>
+</tr>
+<tr>
+<td>│  └─ collect</td>
+<td>3e-3</td>
+<td>忽略</td>
+</tr>
+<tr>
+<td>├─ ref</td>
+<td>30.63</td>
+<td>11.02</td>
+</tr>
+<tr>
+<td>│  ├─ dispatch</td>
+<td>7e-3</td>
+<td>忽略</td>
+</tr>
+<tr>
+<td>│  ├─ submit_execute</td>
+<td>4.69</td>
+<td>1.69</td>
+</tr>
+<tr>
+<td>│  ├─ get_output</td>
+<td>25.93</td>
+<td>9.33</td>
+</tr>
+<tr>
+<td>│  └─ collect</td>
+<td>2e-3</td>
+<td>忽略</td>
+</tr>
+<tr>
+<td>├─ adv</td>
+<td>0.55</td>
+<td>0.2</td>
+</tr>
+<tr>
+<td>├─ <strong>actor_train</strong></td>
+<td>132.76</td>
+<td><strong>47.78</strong></td>
+</tr>
+<tr>
+<td>│  ├─ dispatch</td>
+<td>8e-3</td>
+<td>忽略</td>
+</tr>
+<tr>
+<td>│  ├─ submit_execute</td>
+<td>4.53</td>
+<td>1.6</td>
+</tr>
+<tr>
+<td>│  ├─ <strong>get_output</strong></td>
+<td>128.20</td>
+<td><strong>46.13</strong></td>
+</tr>
+<tr>
+<td>│  └─ collect</td>
+<td>4e-3</td>
+<td>忽略</td>
+</tr>
+</tbody></table>
+<p>driver process中dispatch和collect的时间都非常小，不过他们只表示实际数据发生传输前后driver process对数据split和concat的时间。如果把每个stage分成计算和数据传输两部分，数据传输时间是driver_process上记录各stage时间和各rank所记录时间的差值.</p>
+<p>以rank1,rank 3和rank 7在step2为例(batch_size&#x3D;256):</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>rank 1计算(s)</th>
+<th>rank 3计算(s)</th>
+<th>rank 7计算(s)</th>
+<th>rank 1通信(s)</th>
+<th>rank 3 通信(s)</th>
+<th>rank 7 通信(s)</th>
+<th>平均通信(s)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rollout</td>
+<td>82.37</td>
+<td>82.33</td>
+<td>82.15</td>
+<td>0.63</td>
+<td>0.67</td>
+<td>0.85</td>
+<td>0.71</td>
+</tr>
+<tr>
+<td>reward</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+</tr>
+<tr>
+<td>old_log_prob</td>
+<td>28.61</td>
+<td>27.64</td>
+<td>25.40</td>
+<td>1.40</td>
+<td>2.37</td>
+<td>4.61</td>
+<td>2.79</td>
+</tr>
+<tr>
+<td>ref_prob</td>
+<td>28.79</td>
+<td>27.95</td>
+<td>25.58</td>
+<td>1.84</td>
+<td>2.68</td>
+<td>4.43</td>
+<td>2.98</td>
+</tr>
+<tr>
+<td>adv</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+</tr>
+<tr>
+<td>actor_train</td>
+<td>131.27</td>
+<td>130.28</td>
+<td>129.31</td>
+<td>1.01</td>
+<td>2.48</td>
+<td>3.45</td>
+<td>2.31</td>
+</tr>
+</tbody></table>
+<h3 id="与纯文本耗时比较"><a href="#与纯文本耗时比较" class="headerlink" title="与纯文本耗时比较"></a>与纯文本耗时比较</h3><p>纯文本耗时如下(batch_size&#x3D;1024):</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>rank 1计算(s)</th>
+<th>rank 3计算(s)</th>
+<th>rank 7计算(s)</th>
+<th>rank 1通信(s)</th>
+<th>rank 3 通信(s)</th>
+<th>rank 7 通信(s)</th>
+<th>平均通信(s)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rollout</td>
+<td>90.43</td>
+<td>90.39</td>
+<td>90.33</td>
+<td>0.56</td>
+<td>0.60</td>
+<td>0.66</td>
+<td>0.61</td>
+</tr>
+<tr>
+<td>reward</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+</tr>
+<tr>
+<td>old_log_prob</td>
+<td>30.08</td>
+<td>29.90</td>
+<td>29.49</td>
+<td>0.43</td>
+<td>0.61</td>
+<td>1.02</td>
+<td>0.69</td>
+</tr>
+<tr>
+<td>ref_prob</td>
+<td>31.02</td>
+<td>30.83</td>
+<td>30.34</td>
+<td>0.41</td>
+<td>0.60</td>
+<td>1.09</td>
+<td>0.7</td>
+</tr>
+<tr>
+<td>adv</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+<td>null</td>
+</tr>
+<tr>
+<td>actor_train</td>
+<td>122.67</td>
+<td>122.40</td>
+<td>121.92</td>
+<td>0.38</td>
+<td>0.65</td>
+<td>1.13</td>
+<td>0.72</td>
+</tr>
+</tbody></table>
+<ul>
+<li><p>gsm8k数据集:在batch_size&#x3D;1024下,各stage平均通信时间约0.7s.</p>
+</li>
+<li><p>geo3k数据集:在batch_size&#x3D;256下,各stage平均通信时间约2.6s.</p>
+</li>
+</ul>
+<p>在相同batch_size下,多模态数据量更多,耗时更多,如果多机情况下,耗时差异会更显著.</p>
+<h2 id="MoE"><a href="#MoE" class="headerlink" title="MoE"></a>MoE</h2><p>尝试了若干模型和策略，单机8卡OOM：</p>
+<ul>
+<li>模型：Qwen1.5-MoE-A2.7B-Chat、deepseek-vl2-tiny、deepseek-moe-16b-chat</li>
+<li>策略：增大TP和EP；采用lora；offloading<br>还是排队等13号的机器</li>
+</ul>
+<h1 id="下一步工作"><a href="#下一步工作" class="headerlink" title="下一步工作"></a>下一步工作</h1><ul>
+<li>统计多模态多机情况看看耗时占比.</li>
+<li>统计MoE模型中EP all-to-all的时间占比.</li>
+</ul>
+<h1 id="一些想法"><a href="#一些想法" class="headerlink" title="一些想法"></a>一些想法</h1><ul>
+<li>多模态：去掉driver process这个数据集中的bottleneck在大规模多模态后训练中是有提速的，不过这部分工作感觉和DistRL重合了。</li>
+<li>MoE：RL中reward和adv计算不重，耗时也比较小，大头是rollout和actor training。如果把reward和adv塞进MoE的all-to-all里面，首先需要异步，其次即便完全把这部分计算掩盖过去，收益可能也不会太高。或许需要考虑把rollout和actor training（MoE的话都会有all-to-all）做重叠（当然也是异步RL，而且是colocate）。<br>我有点担心，一是all-to-all的重叠可能不会带来大的收益（还需要看看时间占比）；而是试用场景仅为MoE模型异步RL，目前不是主流，是不是有点窄。</li>
+</ul>
+<h1 id="附录"><a href="#附录" class="headerlink" title="附录"></a>附录</h1><h2 id="多模态实验"><a href="#多模态实验" class="headerlink" title="多模态实验"></a>多模态实验</h2><h3 id="Verl中ray-dispatch和collect数据理解"><a href="#Verl中ray-dispatch和collect数据理解" class="headerlink" title="Verl中ray dispatch和collect数据理解"></a>Verl中ray dispatch和collect数据理解</h3><p>在worker的方法中,ray通过dispatch_mode的方式简洁地规定了数据dispatch的方式:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">ActorRolloutRefWorker</span>(<span class="title class_ inherited__">Worker</span>):</span><br><span class="line">    ...</span><br><span class="line"><span class="meta">    @register(<span class="params">dispatch_mode=Dispatch.DP_COMPUTE_PROTO</span>)</span></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">generate_sequences</span>(<span class="params">self, prompts: DataProto</span>):</span><br><span class="line">        prompts = prompts.to(torch.cuda.current_device())</span><br><span class="line">        ...</span><br></pre></td></tr></table></figure>
+<p>register会设置一个魔法key MAGIC_ATTR,包括attrs &#x3D; {“dispatch_mode”: dispatch_mode, “execute_mode”: execute_mode, “blocking”: blocking}.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">register</span>(<span class="params">dispatch_mode=Dispatch.ALL_TO_ALL, execute_mode=Execute.ALL, blocking=<span class="literal">True</span>, materialize_futures=<span class="literal">True</span></span>):</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">decorator</span>(<span class="params">func</span>):</span><br><span class="line"><span class="meta">        @wraps(<span class="params">func</span>)</span></span><br><span class="line">        <span class="keyword">def</span> <span class="title function_">inner</span>(<span class="params">*args, **kwargs</span>):</span><br><span class="line">            <span class="keyword">if</span> materialize_futures:</span><br><span class="line">                args, kwargs = _materialize_futures(*args, **kwargs) <span class="comment">#注意这里通过arg.get()获取参数</span></span><br><span class="line">            <span class="keyword">return</span> func(*args, **kwargs)</span><br><span class="line"></span><br><span class="line">        attrs = &#123;<span class="string">&quot;dispatch_mode&quot;</span>: dispatch_mode, <span class="string">&quot;execute_mode&quot;</span>: execute_mode, <span class="string">&quot;blocking&quot;</span>: blocking&#125;</span><br><span class="line">        <span class="built_in">setattr</span>(inner, MAGIC_ATTR, attrs)</span><br><span class="line">        <span class="keyword">return</span> inner</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> decorator</span><br></pre></td></tr></table></figure>
+<p>worker(ray actor)会通过RayClassWithInitArgs包一层,最终与resource_pool绑定一起为RayWorkerGroup:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ray_cls_with_init = RayClassWithInitArgs(cls=ray.remote(ActorRolloutRefWorker), config=config, role=<span class="string">&quot;rollout&quot;</span>)</span><br><span class="line">resource_pool = RayResourcePool(process_on_nodes=[config.trainer.n_gpus_per_node] * config.trainer.nnodes)</span><br><span class="line">wg = RayWorkerGroup(resource_pool=resource_pool, ray_cls_with_init=ray_cls_with_init)</span><br></pre></td></tr></table></figure>
+<p>worker通过RayWorkerGroup._init_with_resource_pool创建,被register修饰的方法就会绑定至RayWorkerGroup:</p>
+<img src="/2025/08/10/verl-perfornamce3/Users\25490\Desktop\blog\source\_posts\verl-perfornamce3\worker_group_init.png" alt="worker_group_init" style="zoom: 50%;"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'>
+
+<p>代码中是这样绑定的,首先判断是否可调用,然后如果发现存在MAGIC_ATTR,</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> <span class="built_in">hasattr</span>(method, MAGIC_ATTR):</span><br><span class="line">    attribute = <span class="built_in">getattr</span>(method, MAGIC_ATTR)</span><br><span class="line">    dispatch_mode = attribute[<span class="string">&quot;dispatch_mode&quot;</span>]</span><br><span class="line">    execute_mode = attribute[<span class="string">&quot;execute_mode&quot;</span>]</span><br><span class="line">    blocking = attribute[<span class="string">&quot;blocking&quot;</span>]</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>dispatch_mode等是预定义的,如:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">       Dispatch.DP_COMPUTE_PROTO: &#123;</span><br><span class="line">           <span class="string">&quot;dispatch_fn&quot;</span>: dispatch_dp_compute_data_proto,</span><br><span class="line">           <span class="string">&quot;collect_fn&quot;</span>: collect_dp_compute_data_proto,</span><br><span class="line">       &#125;,</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dispatch_dp_compute_data_proto</span>(<span class="params">worker_group, *args, **kwargs</span>):</span><br><span class="line">   <span class="keyword">from</span> verl.single_controller.base.worker_group <span class="keyword">import</span> WorkerGroup</span><br><span class="line"></span><br><span class="line">   <span class="keyword">assert</span> <span class="built_in">isinstance</span>(worker_group, WorkerGroup)</span><br><span class="line">   <span class="comment"># Note: enable auto padding for dp compute DatapProto</span></span><br><span class="line">   splitted_args, splitted_kwargs = _split_args_kwargs_data_proto_with_auto_padding(</span><br><span class="line">       worker_group.world_size,</span><br><span class="line">       *args,</span><br><span class="line">       **kwargs,</span><br><span class="line">   )</span><br><span class="line">   <span class="keyword">return</span> splitted_args, splitted_kwargs</span><br></pre></td></tr></table></figure>
+<p>接着通过func_generator讲这些MAGIC_ATTR中的方法绑定:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># bind a new method to the RayWorkerGroup</span></span><br><span class="line">func = func_generator(</span><br><span class="line">   <span class="variable language_">self</span>,</span><br><span class="line">   method_name,</span><br><span class="line">   dispatch_fn=dispatch_fn,</span><br><span class="line">   collect_fn=collect_fn,</span><br><span class="line">   execute_fn=execute_fn,</span><br><span class="line">   blocking=blocking,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span>:</span><br><span class="line">   <span class="built_in">setattr</span>(<span class="variable language_">self</span>, method_name, func)</span><br><span class="line">   method_names.append(method_name)</span><br><span class="line"><span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">   <span class="keyword">raise</span> ValueError(<span class="string">f&quot;Fail to set method_name <span class="subst">&#123;method_name&#125;</span>&quot;</span>) <span class="keyword">from</span> e</span><br></pre></td></tr></table></figure>
+<p>func_generator的作用就是在原来的函数外头,把dispatch_fn和collect_fn的逻辑加上:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">func_generator</span>(<span class="params">self, method_name, dispatch_fn, collect_fn, execute_fn, blocking</span>):</span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">Functor</span>:</span><br><span class="line">        <span class="keyword">def</span> <span class="title function_">__call__</span>(<span class="params">this, *args, **kwargs</span>):</span><br><span class="line">            args, kwargs = dispatch_fn(<span class="variable language_">self</span>, *args, **kwargs)</span><br><span class="line">            padding_count = kwargs.pop(_padding_size_key, <span class="number">0</span>)</span><br><span class="line">            output = execute_fn(method_name, *args, **kwargs)</span><br><span class="line">            <span class="keyword">if</span> blocking:</span><br><span class="line">                output = ray.get(output)</span><br><span class="line">            output = collect_fn(<span class="variable language_">self</span>, output)</span><br><span class="line">            <span class="keyword">if</span> padding_count &gt; <span class="number">0</span>:</span><br><span class="line">                <span class="keyword">if</span> <span class="built_in">isinstance</span>(output, DataProto):</span><br><span class="line">                    indices = [i <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="built_in">len</span>(output))][:-padding_count]</span><br><span class="line">                    output = output.select_idxs(indices)</span><br><span class="line">                <span class="keyword">elif</span> <span class="built_in">isinstance</span>(output, <span class="built_in">list</span>):</span><br><span class="line">                    output = output[:-padding_count]</span><br><span class="line">            <span class="keyword">return</span> output</span><br></pre></td></tr></table></figure>
+<p>至于这个excute_fn,和dispatch与collect逻辑类似,定义在rayWorkerGroup中:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">execute_all_async</span>(<span class="params">self, method_name: <span class="built_in">str</span>, *args, **kwargs</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Execute a method on all workers asynchronously.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Args:</span></span><br><span class="line"><span class="string">        method_name: Name of the method to execute</span></span><br><span class="line"><span class="string">        *args: Positional arguments for the method</span></span><br><span class="line"><span class="string">        **kwargs: Keyword arguments for the method</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Returns:</span></span><br><span class="line"><span class="string">        List of remote object references to the method executions</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="comment"># Here, we assume that if all arguments in args and kwargs are lists,</span></span><br><span class="line">    <span class="comment"># and their lengths match len(self._workers), we&#x27;ll distribute each</span></span><br><span class="line">    <span class="comment"># element in these lists to the corresponding worker</span></span><br><span class="line">    <span class="comment"># print(f&quot;execute_all_async: method &#123;method_name&#125;(&#123;args&#125;, &#123;kwargs&#125;)&quot;)</span></span><br><span class="line">    length = <span class="built_in">len</span>(<span class="variable language_">self</span>._workers)</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">all</span>(<span class="built_in">isinstance</span>(arg, <span class="built_in">list</span>) <span class="keyword">for</span> arg <span class="keyword">in</span> args) <span class="keyword">and</span> <span class="built_in">all</span>(<span class="built_in">isinstance</span>(kwarg, <span class="built_in">list</span>) <span class="keyword">for</span> kwarg <span class="keyword">in</span> kwargs.values()):</span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">all</span>(<span class="built_in">len</span>(arg) == length <span class="keyword">for</span> arg <span class="keyword">in</span> args) <span class="keyword">and</span> <span class="built_in">all</span>(<span class="built_in">len</span>(kwarg) == length <span class="keyword">for</span> kwarg <span class="keyword">in</span> kwargs.values()):</span><br><span class="line">            <span class="comment"># print(f&quot;splitting args and kwargs into &#123;length&#125; shards&quot;)</span></span><br><span class="line">            result = []</span><br><span class="line">            <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(length):</span><br><span class="line">                sliced_args = <span class="built_in">tuple</span>(arg[i] <span class="keyword">for</span> arg <span class="keyword">in</span> args)</span><br><span class="line">                sliced_kwargs = &#123;k: v[i] <span class="keyword">for</span> k, v <span class="keyword">in</span> kwargs.items()&#125;</span><br><span class="line">                result.append(</span><br><span class="line">                    <span class="variable language_">self</span>._execute_remote_single_worker(<span class="variable language_">self</span>._workers[i], method_name, *sliced_args, **sliced_kwargs)</span><br><span class="line">                )</span><br><span class="line">            <span class="keyword">return</span> result</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> [<span class="variable language_">self</span>._execute_remote_single_worker(worker, method_name, *args, **kwargs) <span class="keyword">for</span> worker <span class="keyword">in</span> <span class="variable language_">self</span>._workers]</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">_execute_remote_single_worker</span>(<span class="params">self, worker, method_name: <span class="built_in">str</span>, *args, **kwargs</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Execute a method on a single worker remotely.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Args:</span></span><br><span class="line"><span class="string">        worker: The worker actor handle</span></span><br><span class="line"><span class="string">        method_name: Name of the method to execute</span></span><br><span class="line"><span class="string">        *args: Positional arguments for the method</span></span><br><span class="line"><span class="string">        **kwargs: Keyword arguments for the method</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Returns:</span></span><br><span class="line"><span class="string">        Remote object reference to the method execution</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.fused_worker_used <span class="keyword">and</span> method_name <span class="keyword">not</span> <span class="keyword">in</span> <span class="variable language_">self</span>.method_names:</span><br><span class="line">        remote_call = <span class="built_in">getattr</span>(worker, <span class="variable language_">self</span>.fused_worker_execute_fn_name)</span><br><span class="line">        <span class="keyword">return</span> remote_call.remote(<span class="string">f&quot;<span class="subst">&#123;self.sub_cls_name&#125;</span>_fwmn_<span class="subst">&#123;method_name&#125;</span>&quot;</span>, *args, **kwargs)</span><br><span class="line">    <span class="comment"># fused worker not used</span></span><br><span class="line">    remote_call = <span class="built_in">getattr</span>(worker, method_name)</span><br><span class="line">    <span class="keyword">return</span> remote_call.remote(*args, **kwargs)</span><br></pre></td></tr></table></figure>
+
+<p>所以,如果以Rollout process上为例,实际数据流向是这样的:</p>
+<p><img src="/2025/08/10/verl-perfornamce3/Users\25490\Desktop\blog\source_posts\verl-perfornamce3\call_generate_sequences.png" alt="call_generate_sequences"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>因此,我们需要测量driver process中dispatch,collect数据的时间,以及数据传输至rank并执行的总时间,把这些时间与rank上实际执行的时间对比,即可知道传输数据所用时长.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">func_generator</span>(<span class="params">self, method_name, dispatch_fn, collect_fn, execute_fn, blocking</span>):</span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">Functor</span>:</span><br><span class="line">        <span class="keyword">def</span> <span class="title function_">__call__</span>(<span class="params">this, *args, **kwargs</span>):</span><br><span class="line">            <span class="keyword">with</span> marked_timer(<span class="string">&quot;dispatch&quot;</span>, color=<span class="string">&quot;green&quot;</span>):</span><br><span class="line">                args, kwargs = dispatch_fn(<span class="variable language_">self</span>, *args, **kwargs)</span><br><span class="line">                padding_count = kwargs.pop(_padding_size_key, <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">with</span> marked_timer(<span class="string">&quot;submit_execute&quot;</span>, color=<span class="string">&quot;red&quot;</span>):</span><br><span class="line">                output = execute_fn(method_name, *args, **kwargs)</span><br><span class="line">            <span class="keyword">if</span> blocking:</span><br><span class="line">                <span class="keyword">with</span> marked_timer(<span class="string">&quot;get_output&quot;</span>, color=<span class="string">&quot;green&quot;</span>):</span><br><span class="line">                    output = ray.get(output)</span><br><span class="line">            <span class="keyword">with</span> marked_timer(<span class="string">&quot;collect&quot;</span>, color=<span class="string">&quot;black&quot;</span>):</span><br><span class="line">                output = collect_fn(<span class="variable language_">self</span>, output)</span><br><span class="line">                <span class="keyword">if</span> padding_count &gt; <span class="number">0</span>:</span><br><span class="line">                    <span class="keyword">if</span> <span class="built_in">isinstance</span>(output, DataProto):</span><br><span class="line">                        indices = [i <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="built_in">len</span>(output))][:-padding_count]</span><br><span class="line">                        output = output.select_idxs(indices)</span><br><span class="line">                    <span class="keyword">elif</span> <span class="built_in">isinstance</span>(output, <span class="built_in">list</span>):</span><br><span class="line">                        output = output[:-padding_count]</span><br><span class="line">            <span class="keyword">return</span> output</span><br></pre></td></tr></table></figure>
+
+<h3 id="实验环境"><a href="#实验环境" class="headerlink" title="实验环境"></a>实验环境</h3><ul>
+<li>硬件:8*A6000-t2(64G)</li>
+<li>框架:Verl0.5</li>
+<li>模型:Qwen2.5-VL-7B-Instruct</li>
+<li>数据集:geo3k</li>
+<li></li>
+</ul>
+<h3 id="实验脚本"><a href="#实验脚本" class="headerlink" title="实验脚本"></a>实验脚本</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Nsight profiling configuration</span></span><br><span class="line">PROFILE_STEPS=<span class="string">&quot;[2,3]&quot;</span> <span class="comment"># or [] or null</span></span><br><span class="line">PROFILE_RANKS_ALL=<span class="literal">True</span> <span class="comment"># or True</span></span><br><span class="line">PROFILE_RANKS=[<span class="number">0</span>,<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,<span class="number">5</span>,<span class="number">6</span>,<span class="number">7</span>]</span><br><span class="line">DISCRETE=<span class="literal">False</span> <span class="comment"># or True</span></span><br><span class="line">PROFILE_CONTINUOUS_STEPS=<span class="literal">True</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">set</span> -x</span><br><span class="line">ENGINE=$&#123;<span class="number">1</span>:-vllm&#125;</span><br><span class="line"></span><br><span class="line">python3 -m verl.trainer.main_ppo \</span><br><span class="line">    algorithm.adv_estimator=grpo \</span><br><span class="line">    data.train_files=/workspace/dataset/geo3k/train.parquet \</span><br><span class="line">    data.val_files=/workspace/dataset/geo3k/test.parquet \</span><br><span class="line">    data.train_batch_size=<span class="number">256</span> \</span><br><span class="line">    data.max_prompt_length=<span class="number">1024</span> \</span><br><span class="line">    data.max_response_length=<span class="number">2048</span> \</span><br><span class="line">    data.filter_overlong_prompts=<span class="literal">True</span> \</span><br><span class="line">    data.truncation=<span class="string">&#x27;error&#x27;</span> \</span><br><span class="line">    data.image_key=images \</span><br><span class="line">    actor_rollout_ref.model.path=/workspace/model/Qwen2<span class="number">.5</span>-VL-7B-Instruct \</span><br><span class="line">    actor_rollout_ref.actor.optim.lr=<span class="number">1e-6</span> \</span><br><span class="line">    actor_rollout_ref.model.use_remove_padding=<span class="literal">True</span> \</span><br><span class="line">    actor_rollout_ref.actor.ppo_mini_batch_size=<span class="number">128</span> \</span><br><span class="line">    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=<span class="number">10</span> \</span><br><span class="line">    actor_rollout_ref.actor.use_kl_loss=<span class="literal">True</span> \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_coef=<span class="number">0.01</span> \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_type=low_var_kl \</span><br><span class="line">    actor_rollout_ref.actor.entropy_coeff=<span class="number">0</span> \</span><br><span class="line">    actor_rollout_ref.model.enable_gradient_checkpointing=<span class="literal">True</span> \</span><br><span class="line">    actor_rollout_ref.actor.fsdp_config.param_offload=<span class="literal">False</span> \</span><br><span class="line">    actor_rollout_ref.actor.fsdp_config.optimizer_offload=<span class="literal">False</span> \</span><br><span class="line">    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=<span class="number">20</span> \</span><br><span class="line">    actor_rollout_ref.rollout.tensor_model_parallel_size=<span class="number">4</span> \</span><br><span class="line">    actor_rollout_ref.rollout.name=$ENGINE \</span><br><span class="line">    actor_rollout_ref.rollout.engine_kwargs.vllm.disable_mm_preprocessor_cache=<span class="literal">True</span> \</span><br><span class="line">    actor_rollout_ref.rollout.gpu_memory_utilization=<span class="number">0.6</span> \</span><br><span class="line">    actor_rollout_ref.rollout.enable_chunked_prefill=<span class="literal">False</span> \</span><br><span class="line">    actor_rollout_ref.rollout.enforce_eager=<span class="literal">False</span> \</span><br><span class="line">    actor_rollout_ref.rollout.free_cache_engine=<span class="literal">True</span> \</span><br><span class="line">    actor_rollout_ref.rollout.n=<span class="number">5</span> \</span><br><span class="line">    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=<span class="number">20</span> \</span><br><span class="line">    actor_rollout_ref.ref.fsdp_config.param_offload=<span class="literal">True</span> \</span><br><span class="line">    actor_rollout_ref.profiler.ranks=$PROFILE_RANKS \</span><br><span class="line">    actor_rollout_ref.profiler.all_ranks=$PROFILE_RANKS_ALL \</span><br><span class="line">    actor_rollout_ref.profiler.discrete=$DISCRETE \</span><br><span class="line">    algorithm.use_kl_in_reward=<span class="literal">False</span> \</span><br><span class="line">    trainer.critic_warmup=<span class="number">0</span> \</span><br><span class="line">    trainer.logger=<span class="string">&#x27;[&quot;console&quot;]&#x27;</span> \</span><br><span class="line">    trainer.project_name=<span class="string">&#x27;verl_grpo_example_geo3k&#x27;</span> \</span><br><span class="line">    trainer.experiment_name=<span class="string">&#x27;qwen2_5_vl_7b_function_rm&#x27;</span> \</span><br><span class="line">    trainer.n_gpus_per_node=<span class="number">8</span> \</span><br><span class="line">    trainer.nnodes=<span class="number">1</span> \</span><br><span class="line">    trainer.save_freq=<span class="number">20</span> \</span><br><span class="line">    trainer.test_freq=<span class="number">100</span> \</span><br><span class="line">    ray_init.timeline_json_file=/workspace/record/qwenvl_ray_timeline.json \</span><br><span class="line">    trainer.profile_steps=$PROFILE_STEPS \</span><br><span class="line">    trainer.profile_continuous_steps=$PROFILE_CONTINUOUS_STEPS \</span><br><span class="line">    trainer.total_epochs=<span class="number">1</span> <span class="number">2</span>&gt;&amp;<span class="number">1</span> | tee verl_demo.log</span><br></pre></td></tr></table></figure>
+<h3 id="实验记录"><a href="#实验记录" class="headerlink" title="实验记录"></a>实验记录</h3><ul>
+<li>2025&#x2F;08&#x2F;9:分析verl中ray交互数据原理,moe各种并行策略换模型都OOM,只能多卡了</li>
+<li>2025&#x2F;08&#x2F;10:直接跑官方样例不通,降低tansformers版本到4.52.4试一试(4.53是不行的,不支持),降低版本(4.52.4)后可以跑了,但是ray 的actor莫名其妙挂掉了,尝试减少batch size看看是不是OOM的问题,看起来是的,但是还是跑不成功,内存太小了.换了500G内存后就OK了.</li>
+<li>2025&#x2F;08&#x2F;11:使用Nsight计算时间,计算传输数据时间占比,是否为bottleneck.</li>
+</ul>
+<h2 id="MoE-1"><a href="#MoE-1" class="headerlink" title="MoE"></a>MoE</h2><h3 id="环境"><a href="#环境" class="headerlink" title="环境"></a>环境</h3><ul>
+<li>硬件:8*A6000-t2(64G)</li>
+<li>框架:Verl0.5</li>
+<li>模型:Qwen1.5-MoE-A2.7B-Chat</li>
+<li>推理|训练：推理使用VLLM(tp&#x3D;2,dp&#x3D;4)，训练为FSDP(dp&#x3D;8)</li>
+<li>放置方式：actor、reference model和rollout model共置</li>
+</ul>
+<h3 id="实验记录-1"><a href="#实验记录-1" class="headerlink" title="实验记录"></a>实验记录</h3><p>2025&#x2F;&#x2F;08&#x2F;08: 找到了VLLM中moe通信的函数.<br>2025&#x2F;08&#x2F;09:MoE一直OOM,调整没有结果.<br>2025&#x2F;08&#x2F;10:仍然在调试MoE,或许我需要自动调参的工具,或许可以尝试使用lora,lora看起来也不行,说参数不识别,因为目前lora只支持fsdp,而且qwen2MoE也不支持lora;接着使用deepseek-vl2-tiny,不是很管用<br>2025&#x2F;08&#x2F;11:尝试使用fsdp跑lora的实验,如果还是不行的话,就只能多卡,今天尝试解析timeline文件,要多读论文.</p>
+
+</article>
+    
+    
+
+</div>
+<div class="trm-post-next-prev row">
+    <div class="col-lg-12">
+        <!-- title -->
+        <h5 class="trm-title-with-divider">
+            其他文章
+            <span data-number="02"></span>
+        </h5>
+    </div>
+    
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/08/04/verl-perfornamce2/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/RLHF/">
+                    RLHF
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/08/04/verl-perfornamce2/" class="trm-anima-link">
+                    verl性能分析（二）-实验分析
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/08/04</li>
+                <li>20:35</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+</div>
+
+    
+
+
+
+                    <div class="trm-divider footer-divider"></div>
+
+                    <!-- footer -->
+                    <footer class="trm-footer-card trm-scroll-animation">
+
+    
+
+    
+
+    
+        <div class="trm-footer-item">
+            <span>
+                由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 v7.3.0
+            </span>
+            <span class="footer-separator" data-separator=" | "></span>
+            <span> 
+                主题 - 
+                <a rel="noopener" href='https://github.com/MaLuns/hexo-theme-async' target='_blank'>Async</a>
+                v2.2.6
+            </span>
+        </div>
+      
+
+     
+
+     
+</footer>
+                    <!-- footer end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <!-- body end -->
+
+            
+
+            
+<div class="trm-fixed-container">
+    
+    
+        <div class="trm-fixed-btn" data-title="阅读模式" onclick="asyncFun.switchReadMode()">
+            <i class="iconfont fas fa-book-reader"></i>
+        </div>
+    
+    
+    <div id="trm-back-top" class="trm-fixed-btn" data-title="回到顶部">
+        <i class="iconfont fas fa-arrow-up"></i>
+    </div>
+</div>
+        </div>
+      </div>
+      <!-- scroll container end -->
+  </div>
+  <!-- app wrapper end -->
+
+  
+  <!-- Plugin -->
+
+
+
+
+    
+    
+<script src="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+    
+
+    
+
+    
+
+    <!-- 数学公式 -->
+    
+
+    <!-- 评论插件 -->
+    
+        
+
+        
+    
+
+		
+
+
+
+
+    <!-- Service Worker -->
+    
+    <!-- baidu push -->
+    
+
+
+<script id="async-script" src="/js/main.js?v=2.2.6"></script>
+
+<!-- CDN -->
+
+
+    
+
+    
+
+    
+
+
+
+</body>
+
+</html>
