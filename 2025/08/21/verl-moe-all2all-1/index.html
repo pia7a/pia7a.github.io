@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="x5-fullscreen" content="true">
+<meta name="full-screen" content="yes">
+<meta name="theme-color" content="#317EFB" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
+<meta name="description" content="目的探究在RL训练框架中，将moe的专家层all-to-all通信时间与rollout做重叠的可能。 之前统计的时间并不准确。 all-to-all时间占比多机多卡Qwen3-30B-A3B-Instruct-2507profile两个stage，平均耗时104.89s，all-to-all耗时16.79s，占比15.61%  硬件:16*A6000,2 nodes 框架:Verl0.5 模型:Q">
+<meta property="og:type" content="article">
+<meta property="og:title" content="verl性能分析（四）-all-to-all实验分析">
+<meta property="og:url" content="http://example.com/2025/08/21/verl-moe-all2all-1/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="目的探究在RL训练框架中，将moe的专家层all-to-all通信时间与rollout做重叠的可能。 之前统计的时间并不准确。 all-to-all时间占比多机多卡Qwen3-30B-A3B-Instruct-2507profile两个stage，平均耗时104.89s，all-to-all耗时16.79s，占比15.61%  硬件:16*A6000,2 nodes 框架:Verl0.5 模型:Q">
+<meta property="og:locale">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="article:published_time" content="2025-08-21T08:57:31.000Z">
+<meta property="article:modified_time" content="2025-09-04T01:29:57.044Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="MOE">
+<meta property="article:tag" content="Verl框架">
+<meta property="article:tag" content="性能分析">
+<meta property="article:tag" content="all-to-all">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/404.jpg">
+
+    <meta name="keywords" content="RLHF,Verl框架,性能分析,all-to-all">
+
+
+<title >verl性能分析（四）-all-to-all实验分析</title>
+
+<!-- Favicon -->
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='16x16' ></link>
+
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='32x32' ></link>
+
+
+
+
+<!-- Plugin -->
+
+
+
+
+    
+<link rel="stylesheet" href="/css/plugins/bootstrap.row.css">
+
+    
+<link rel="stylesheet" href="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.css">
+
+    
+    
+
+
+
+
+<!-- Icon -->
+
+    
+<link rel="stylesheet" href="/css/plugins/font-awesome.min.css">
+
+
+
+
+<!-- Variable -->
+<script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-09-04 09:29:57"};</script>
+
+<!-- Theme mode css -->
+<link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
+<script>
+    let defaultMode = ASYNC_CONFIG.theme.default !=='auto' ?  ASYNC_CONFIG.theme.default : (window.matchMedia("(prefers-color-scheme: light)").matches ? 'style-light' : 'style-dark')
+    let catchMode = localStorage.getItem('theme-mode') || defaultMode;
+    let type = catchMode === 'style-dark' ? 'add' : 'remove';
+    document.documentElement.classList[type]('dark')
+</script>
+
+<!-- CDN -->
+
+
+    
+    
+
+
+
+<!-- Site Analytics -->
+
+ 
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+
+  <!-- app wrapper -->
+  <div class="trm-app-frame">
+
+    <!-- page preloader -->
+    <div class="trm-preloader">
+    <div class="trm-holder">
+        <div class="preloader">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+</div>
+    <!-- page preloader end -->
+
+    <!-- change mode preloader -->
+    <div class="trm-mode-swich-animation-frame">
+    <div class="trm-mode-swich-animation">
+        <i class="i-sun"><i class="iconfont far fa-sun"></i></i>
+        <div class="trm-horizon"></div>
+        <i class="i-moon"><i class="iconfont far fa-moon"></i></i>
+    </div>
+</div>
+    <!-- change mode preloader end -->
+
+      <!-- scroll container -->
+      <div id="trm-dynamic-content" class="trm-swup-animation">
+        <div id="trm-scroll-container" class="trm-scroll-container" style="opacity: 0">
+            <!-- top bar -->
+            <header class="trm-top-bar">
+	<div class="container">
+		<div class="trm-left-side">
+			<!-- logo -->
+<a href="/" class="trm-logo-frame trm-anima-link">
+    
+        <img alt="logo" src="/img/favicon.svg">
+    
+    
+        <div class="trm-logo-text">
+            Async<span>zhiqiang</span>
+        </div>
+    
+</a>
+<!-- logo end -->
+		</div>
+		<div class="trm-right-side">
+			<!-- menu -->
+<div class="trm-menu">
+    <nav>
+        <ul>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/" target="">
+                    首页
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/archives/" target="">
+                    时间线
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/tags/" target="">
+                    标签
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/categories" target="">
+                    分类
+                </a>
+                
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+<!-- menu end -->
+			
+    <!-- mode switcher place -->
+    <div class="trm-mode-switcher-place">
+        <div class="trm-mode-switcher">
+            <i class="iconfont far fa-sun"></i>
+            <input class="tgl tgl-light" id="trm-swich" type="checkbox">
+            <label class="trm-swich" for="trm-swich"></label>
+            <i class="iconfont far fa-moon"></i>
+        </div>
+    </div>
+    <!-- mode switcher place end -->
+
+			
+		</div>
+		<div class="trm-menu-btn">
+			<span></span>
+		</div>
+	</div>
+</header>
+            <!-- top bar end -->
+
+            <!-- body -->
+            
+<div class="trm-content-start">
+    <!-- banner -->
+    <div class="trm-banner">
+    
+    <!-- banner cover -->
+    <img style="object-position:top;object-fit:cover;" alt="banner" class="trm-banner-cover" src="https://pic1.zhimg.com/v2-b3c2c6745b9421a13a3c4706b19223b3_r.jpg">
+    <!-- banner cover end -->
+    
+
+    <!-- banner content -->
+    <div class="trm-banner-content trm-overlay">
+        <div class="container">
+            <div class="row">
+                
+                <div class="col-lg-4"></div>
+                
+                <div class="col-lg-8">
+
+                    <!-- banner title -->
+                    <div class="trm-banner-text ">
+                        <div class="trm-label trm-mb-20">
+                            more paper, more fun
+                        </div>
+                        <h1 class="trm-mb-30 trm-hsmb-font">
+                            verl性能分析（四）-all-to-all实验分析
+                        </h1>
+
+                        
+                            <ul class="trm-breadcrumbs trm-label">
+                                <li>
+                                    <a href="/" class="trm-anima-link">Home</a>
+                                </li>
+                                <li>
+                                    <span>
+                                        2025
+                                    </span>
+                                </li>
+                            </ul>
+                        
+                    </div>
+                    <!-- banner title end -->
+
+                    <!-- scroll hint -->
+                    <span id="scroll-triger" class="trm-scroll-hint-frame">
+                        <div class="trm-scroll-hint"></div>
+                        <span class="trm-label">Scroll down</span>
+                    </span>
+                    <!-- scroll hint end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- banner content end -->
+</div>
+    <!-- banner end -->
+    <div class="container">
+        <div class="row">
+            
+                <div class="trm-page-sidebar col-lg-4 hidden-sm">
+                    <!-- main card -->
+                    <div class="trm-main-card-frame trm-sidebar">
+    <div class="trm-main-card"> 
+        <!-- card header -->
+<div class="trm-mc-header">
+    <div class="trm-avatar-frame trm-mb-20">
+        <img alt="Avatar" class="trm-avatar" src="/img/avatar.jpg">
+    </div>
+    <h5 class="trm-name trm-mb-15">
+        看雪
+    </h5>
+    
+</div>
+<!-- card header end -->
+        <!-- sidebar social -->
+
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<div class="trm-social">
+    
+        <a href="https://github.com" title="Github" rel="nofollow" target="_blank">
+            <i class="iconfont fab fa-github"></i>
+        </a>
+    
+</div>
+
+<!-- sidebar social end -->
+        <!-- info -->
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<ul class="trm-table trm-mb-20">
+    
+        <li>
+            <div class="trm-label">
+                Residence:
+            </div>
+            <div class="trm-label trm-label-light">
+                Mars
+            </div>
+        </li>
+    
+</ul>
+<!-- info end -->
+
+        
+    </div>
+</div>
+                    <!-- main card end -->
+                </div>
+            
+            <div class="trm-page-content col-lg-8">
+                <div id="trm-content" class="trm-content">
+                    <div class="trm-post-info row hidden-sm">
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-calendar-alt trm-icon"></i><br>
+            08/21
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-clock trm-icon"></i><br>
+            16:57
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div id="post-author" class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-user trm-icon"></i><br>
+            John Doe
+        </div>
+    </div>
+</div>
+<div class="trm-card ">
+    <article id="article-container" class="trm-publication">
+    <h1 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h1><p>探究在RL训练框架中，将moe的专家层all-to-all通信时间与rollout做重叠的可能。</p>
+<p>之前统计的时间并不准确。</p>
+<h1 id="all-to-all时间占比"><a href="#all-to-all时间占比" class="headerlink" title="all-to-all时间占比"></a>all-to-all时间占比</h1><h2 id="多机多卡"><a href="#多机多卡" class="headerlink" title="多机多卡"></a>多机多卡</h2><h3 id="Qwen3-30B-A3B-Instruct-2507"><a href="#Qwen3-30B-A3B-Instruct-2507" class="headerlink" title="Qwen3-30B-A3B-Instruct-2507"></a>Qwen3-30B-A3B-Instruct-2507</h3><p>profile两个stage，平均耗时104.89s，<strong>all-to-all耗时16.79s，占比15.61%</strong></p>
+<ul>
+<li>硬件:16*A6000,2 nodes</li>
+<li>框架:Verl0.5</li>
+<li>模型:<strong>Qwen3-30B-A3B-Instruct-2507</strong>，隐藏层仅保留2层</li>
+<li>数据集:gsm8k</li>
+<li>推理：VLLM (dp,tp,pp)&#x3D;(4,4,1)</li>
+<li>训练：Megatron (dp,tp,ep,pp,cp)&#x3D;(1,1,16,1,1)</li>
+<li>batch size: 1024</li>
+<li>placement：colocate</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>stage</th>
+<th>时间</th>
+<th>占比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rollout</td>
+<td>48.86s</td>
+<td>46.58%</td>
+</tr>
+<tr>
+<td>actor_training</td>
+<td>25.00s</td>
+<td>26.73%</td>
+</tr>
+<tr>
+<td>compute_log_prob</td>
+<td>15.78s</td>
+<td>15.04%</td>
+</tr>
+<tr>
+<td>compute_ref_log_prob</td>
+<td>10.20s</td>
+<td>9.72%</td>
+</tr>
+<tr>
+<td>reward&amp;adv</td>
+<td>5.05s</td>
+<td>4.81%</td>
+</tr>
+</tbody></table>
+<h3 id="qwen1-5-moe-a2-7b-chat"><a href="#qwen1-5-moe-a2-7b-chat" class="headerlink" title="qwen1.5-moe-a2.7b-chat"></a>qwen1.5-moe-a2.7b-chat</h3><p>profile两个stage，平均耗时186.34s，<strong>all-to-all耗时20.82s，占比11.17%</strong></p>
+<ul>
+<li>硬件:16*A6000,2 nodes</li>
+<li>框架:Verl0.5</li>
+<li>模型:<strong>qwen1.5-moe-a2.7b-chat</strong>，隐藏层仅保留2层</li>
+<li>数据集:gsm8k</li>
+<li>推理：VLLM (dp,tp,pp)&#x3D;(4,4,1)</li>
+<li>训练：Megatron (dp,tp,ep,pp,cp)&#x3D;(1,4,4,1,1)</li>
+<li>batch size: 1024</li>
+<li>placement：colocate</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>stage</th>
+<th>时间</th>
+<th>占比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rollout</td>
+<td>101.30s</td>
+<td>54.36%</td>
+</tr>
+<tr>
+<td>actor_training</td>
+<td>37.90s</td>
+<td>20.34%</td>
+</tr>
+<tr>
+<td>compute_log_prob</td>
+<td>21.65s</td>
+<td>11.62%</td>
+</tr>
+<tr>
+<td>compute_ref_log_prob</td>
+<td>17.40s</td>
+<td>9.34%</td>
+</tr>
+<tr>
+<td>reward&amp;adv</td>
+<td>8.09s</td>
+<td>4.34%</td>
+</tr>
+</tbody></table>
+<h2 id="单机多卡"><a href="#单机多卡" class="headerlink" title="单机多卡"></a>单机多卡</h2><h3 id="Qwen3-30B-A3B-Instruct-2507-1"><a href="#Qwen3-30B-A3B-Instruct-2507-1" class="headerlink" title="Qwen3-30B-A3B-Instruct-2507"></a>Qwen3-30B-A3B-Instruct-2507</h3><p>profile两个stage，平均耗时172.69，<strong>all-to-all耗时22.65s，占比13.11%</strong></p>
+<ul>
+<li>硬件:8*A6000</li>
+<li>框架:Verl0.5</li>
+<li>模型:<strong>Qwen3-30B-A3B-Instruct-2507</strong>，隐藏层仅保留2层</li>
+<li>数据集:gsm8k</li>
+<li>推理：VLLM (dp,tp,pp)&#x3D;(2,4,1)</li>
+<li>训练：Megatron (dp,tp,ep,pp,cp)&#x3D;(1,1,8,1,1)</li>
+<li>batch size: 1024</li>
+<li>placement：colocate</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>stage</th>
+<th>时间</th>
+<th>占比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rollout</td>
+<td>91.95s</td>
+<td>53.25%</td>
+</tr>
+<tr>
+<td>actor_training</td>
+<td>36.25s</td>
+<td>21.00%</td>
+</tr>
+<tr>
+<td>compute_log_prob</td>
+<td>15.24s</td>
+<td>13.29%</td>
+</tr>
+<tr>
+<td>compute_ref_log_prob</td>
+<td>20.50s</td>
+<td>8.8%</td>
+</tr>
+<tr>
+<td>reward&amp;adv</td>
+<td>8.75s</td>
+<td>5.1%</td>
+</tr>
+</tbody></table>
+<h3 id="qwen1-5-moe-a2-7b-chat-1"><a href="#qwen1-5-moe-a2-7b-chat-1" class="headerlink" title="qwen1.5-moe-a2.7b-chat"></a>qwen1.5-moe-a2.7b-chat</h3><p>profile两个stage，平均耗时304.38，<strong>all-to-all耗时22.29s，占比6.53%</strong></p>
+<ul>
+<li>硬件:8*A6000</li>
+<li>框架:Verl0.5</li>
+<li>模型:<strong>qwen1.5-moe-a2.7b-chat</strong>，隐藏层仅保留2层</li>
+<li>数据集:gsm8k</li>
+<li>推理：VLLM (dp,tp,pp)&#x3D;(2,4,1)</li>
+<li>训练：Megatron (dp,tp,ep,pp,cp)&#x3D;(1,2,4,1,1)</li>
+<li>batch size: 1024</li>
+<li>placement：colocate</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>stage</th>
+<th>时间</th>
+<th>占比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rollout</td>
+<td>192.02s</td>
+<td>63.09%</td>
+</tr>
+<tr>
+<td>actor_training</td>
+<td>50.95s</td>
+<td>16.74%</td>
+</tr>
+<tr>
+<td>compute_log_prob</td>
+<td>32.30s</td>
+<td>10.61%</td>
+</tr>
+<tr>
+<td>compute_ref_log_prob</td>
+<td>22.95s</td>
+<td>7.54%</td>
+</tr>
+<tr>
+<td>reward&amp;adv</td>
+<td>6.16s</td>
+<td>2.02%</td>
+</tr>
+</tbody></table>
+<h2 id="结果分析"><a href="#结果分析" class="headerlink" title="结果分析"></a>结果分析</h2><p>all-to-all耗时分布在megatron前向和后向中，在训练中占比30%~60%，符合预期。不过rollout时间太长，因此总时间占比不大。</p>
+<h1 id="计划"><a href="#计划" class="headerlink" title="计划"></a>计划</h1><p>下面两种方法均为rollout与actor_training在时间上并行的，但为discrete，需要自己实现colocate版本。计划实现后分别测试同样硬件资源下colocate与discrete的时间对比，如果colocate有加速，再考虑利用all-to-al进一步加速。</p>
+<h2 id="Minibatch-Pipelining"><a href="#Minibatch-Pipelining" class="headerlink" title="Minibatch Pipelining"></a>Minibatch Pipelining</h2><img src="/2025/08/21/verl-moe-all2all-1/Users\25490\Desktop\blog\source\_posts\verl-moe-all2all-1\baseline_minibatch.svg" alt="img" style="zoom:33%;"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'>
+
+<p>rollout持续不断生成样本，当凑够一个minibatch就actor training，几个minibatch后更新参数。</p>
+<p>以下结果参考参考[DeepCoder](<a target="_blank" rel="noopener" href="https://pretty-radio-b75.notion.site/DeepCoder-A-Fully-Open-Source-14B-Coder-at-O3-mini-Level-1cf81902c14680b3bee5eb349a512a51">DeepCoder: A Fully Open-Source 14B Coder at O3-mini Level</a>)：</p>
+<p><img src="https://pretty-radio-b75.notion.site/image/attachment%3A43ed489b-f414-4265-b54f-f292a1979168%3Abaseline_comparison.png?table=block&id=1cf81902-c146-80ec-9e90-d63fa11a87f2&spaceId=3dea8845-5afd-4ee7-97ee-480e9ce47ccd&width=1420&userId=&cache=v2" alt="img"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h2 id="one-step-off-policy"><a href="#one-step-off-policy" class="headerlink" title="one_step_off_policy"></a>one_step_off_policy</h2><p><img src="/2025/08/21/verl-moe-all2all-1/Users\25490\Desktop\blog\source_posts\verl-moe-all2all-1\baseline_one_off.png" alt="image-20250826092454621"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>错开一个batch，让rollout覆盖training。</p>
+<p>以下结果参考<a target="_blank" rel="noopener" href="https://verl.readthedocs.io/en/latest/advance/one_step_off.html">verl doc</a>:</p>
+<ul>
+<li><strong>Machine Configuration</strong>: 2 nodes with 16 H20 GPUs each<ul>
+<li>Generation: 4 GPUs</li>
+<li>Training: 12 GPUs</li>
+</ul>
+</li>
+<li><strong>Model</strong>: Qwen2.5-Math-7B</li>
+<li><strong>Rollout Configuration</strong>:</li>
+<li><strong>Max Response Length</strong>: FSDP2: 20,480 tokens; Megatron: 8,192 tokens</li>
+<li><strong>Algorithm</strong>: DAPO</li>
+<li><strong>Rollout Engine</strong>: vLLM</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>training mode</th>
+<th>engine</th>
+<th>step</th>
+<th>gen</th>
+<th>wait_prev_gen</th>
+<th>generate_sequences</th>
+<th>old_log_prob</th>
+<th>update_actor</th>
+<th>total time</th>
+<th>acc&#x2F;best@32&#x2F;mean</th>
+<th>acc&#x2F;maj@32&#x2F;mean</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>colocate sync</td>
+<td>VLLM+FSDP2</td>
+<td>749</td>
+<td>321</td>
+<td>-</td>
+<td>247</td>
+<td>88</td>
+<td>286</td>
+<td>19h18m</td>
+<td>0.5948</td>
+<td>0.417</td>
+</tr>
+<tr>
+<td>one-step-overlap async</td>
+<td>VLLM+FSDP2</td>
+<td>520</td>
+<td>-</td>
+<td>45</td>
+<td>458</td>
+<td>108</td>
+<td>337</td>
+<td>15h34m（+23%）</td>
+<td>0.6165</td>
+<td>0.494</td>
+</tr>
+<tr>
+<td>colocate sync</td>
+<td>VLLM+Megatron</td>
+<td>699</td>
+<td>207</td>
+<td>-</td>
+<td>162</td>
+<td>119</td>
+<td>344</td>
+<td>18h21m</td>
+<td>0.605</td>
+<td>0.4217</td>
+</tr>
+<tr>
+<td>one-step-overlap async</td>
+<td>VLLM+Megatron</td>
+<td>566</td>
+<td>-</td>
+<td>59</td>
+<td>501</td>
+<td>120</td>
+<td>347</td>
+<td>13h06m (+40%)</td>
+<td>0.6569</td>
+<td>0.4038</td>
+</tr>
+</tbody></table>
+<ul>
+<li>colocate sync: step ≈ gen + old_log_prob + update_actor</li>
+<li>one-step-overlap async: step ≈ wait_prev_gen + old_log_prob + update_actor</li>
+</ul>
+<h3 id="时间对比"><a href="#时间对比" class="headerlink" title="时间对比"></a>时间对比</h3><ol>
+<li>traditional colocated</li>
+</ol>
+<ul>
+<li>硬件:8*A6000</li>
+<li>框架:Verl0.5</li>
+<li>模型:<strong>Qwen3-30B-A3B-Instruct-2507</strong>，隐藏层仅保留2层</li>
+<li>数据集:gsm8k</li>
+<li>推理：VLLM (dp,tp,pp)&#x3D;(2,4,1)</li>
+<li>训练：Megatron (dp,tp,ep,pp,cp)&#x3D;(8,1,8,1,1)</li>
+<li>batch size: 1024 .max_prompt_length&#x3D;256, max_response_length&#x3D;256</li>
+<li>placement：colocate</li>
+<li>一个step平均63.57s。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>stage</th>
+<th>时间</th>
+<th>占比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rollout</td>
+<td>27.43s</td>
+<td>43.15%</td>
+</tr>
+<tr>
+<td>actor_training</td>
+<td>18.12s</td>
+<td>28.51%</td>
+</tr>
+<tr>
+<td>compute_log_prob</td>
+<td>10.19s</td>
+<td>16.03%</td>
+</tr>
+<tr>
+<td>compute_ref_log_prob</td>
+<td>5.73s</td>
+<td>9.01%</td>
+</tr>
+<tr>
+<td>reward&amp;adv</td>
+<td>0.7s</td>
+<td>1.1%</td>
+</tr>
+</tbody></table>
+<ul>
+<li>硬件:8*A6000</li>
+<li>框架:Verl0.5</li>
+<li>模型:<strong>Qwen3-30B-A3B-Instruct-2507</strong>，隐藏层仅保留2层</li>
+<li>数据集:gsm8k</li>
+<li>推理：VLLM (dp,tp,pp)&#x3D;(2,4,1)</li>
+<li>训练：Megatron (dp,tp,ep,pp,cp)&#x3D;(8,1,2,1,1)</li>
+<li>batch size: 1024 .max_prompt_length&#x3D;256, max_response_length&#x3D;256</li>
+<li>placement：colocate</li>
+<li>一个step平均49.89s。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>stage</th>
+<th>时间</th>
+<th>占比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rollout</td>
+<td>17.61s</td>
+<td>35.30%</td>
+</tr>
+<tr>
+<td>actor_training</td>
+<td>18.27s</td>
+<td>36.60%</td>
+</tr>
+<tr>
+<td>compute_log_prob</td>
+<td>9.23s</td>
+<td>18.50%</td>
+</tr>
+<tr>
+<td>compute_ref_log_prob</td>
+<td>3.99s</td>
+<td>7.99%</td>
+</tr>
+<tr>
+<td>reward&amp;adv</td>
+<td>0.7s</td>
+<td>1.4%</td>
+</tr>
+</tbody></table>
+<ol start="2">
+<li>one-step-overlap<br>思路：rollout与training放置在不同的resource pool。<br>实现：复现了一个没有参数同步的版本。</li>
+</ol>
+<ul>
+<li>硬件:8*A6000</li>
+<li>框架:Verl0.5</li>
+<li>模型:<strong>Qwen3-30B-A3B-Instruct-2507</strong>，隐藏层仅保留2层</li>
+<li>数据集:gsm8k</li>
+<li>推理：VLLM (dp,tp,pp)&#x3D;(2,1,1)</li>
+<li>训练：Megatron (dp,tp,ep,pp,cp)&#x3D;(6,1,2,1,1)</li>
+<li>batch size: 1024 .max_prompt_length&#x3D;256, max_response_length&#x3D;256</li>
+<li>placement：推理2张卡，其他（训练等）6张卡</li>
+</ul>
+<p>一个step平均44.90s,第一次rollout的时间为45.2s.加速1.1$\times$</p>
+<table>
+<thead>
+<tr>
+<th>stage</th>
+<th>平均时间</th>
+<th>占比</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>wait_prev_gen</td>
+<td>20.50s</td>
+<td>45.66%</td>
+</tr>
+<tr>
+<td>actor_training</td>
+<td>12.81s</td>
+<td>28.53%</td>
+</tr>
+<tr>
+<td>compute_log_prob</td>
+<td>7.37s</td>
+<td>16.41%</td>
+</tr>
+<tr>
+<td>compute_ref_log_prob</td>
+<td>4.66s</td>
+<td>10.38%</td>
+</tr>
+<tr>
+<td>reward&amp;adv</td>
+<td>0.7s</td>
+<td>1.5%</td>
+</tr>
+</tbody></table>
+<ol start="3">
+<li><p>naive colocated one-step-overlap<br>思路：将rollout与training共同放置在一个resource pool，以多进程或线程的方式并行。<br>目前还在实现，由于verl默认通过create_colocated_worker_cls把colocate的模型放在同一个新建的进程去运行（即便初始化时remote几个进程）。所以patch掉这部分代码，允许每个rank上多进程运行（或考虑新建进程中起新的线程？）。</p>
+</li>
+<li><p>refined colocated one-step-overlap<br>思路：rollout和training等stage计算与通信折叠，或许比直接共置效率更高。<br>实现：还在构思。</p>
+</li>
+</ol>
+<h1 id="思考"><a href="#思考" class="headerlink" title="思考"></a>思考</h1><ul>
+<li>vllm等在rollout的时候也需要通信，这会不会影响all-to-all的效率</li>
+</ul>
+<h1 id="paper阅读"><a href="#paper阅读" class="headerlink" title="paper阅读"></a>paper阅读</h1><ol>
+<li>FlashRL: 8Bit Rollouts, Full Power RL</li>
+</ol>
+<p>$\small{<br>\underbrace{\mathbb{E}<em>{a\sim\textcolor{blue}{\pi</em>{\text{bf16}}}(\theta_{\mathrm{old}})}}<em>{\text{int8 rollout: }\textcolor{blue}{\pi</em>{\text{bf16}}} \to \textcolor{red}{\pi_{\text{int8}}}}<br>\Bigl[<br>\nabla_\theta \min\Bigl(<br>\frac{\textcolor{blue}{\pi_{\text{bf16}}}(a, \theta)}{\textcolor{blue}{\pi_{\text{bf16}}}(a, \theta_{\mathrm{old}})},\hat A,<br>;\mathrm{clip}\bigl(\frac{\textcolor{blue}{\pi_{\text{bf16}}}(a, \theta)}{\textcolor{blue}{\pi_{\text{bf16}}}(a, \theta_{\mathrm{old}})},,1-\epsilon,,1+\epsilon\bigr),\hat A<br>\Bigr)<br>\Bigr]<br>}.$</p>
+<h1 id="工作日志"><a href="#工作日志" class="headerlink" title="工作日志"></a>工作日志</h1><p>8&#x2F;22: 用torch profile看不到GPU的信息，但是用nsys结合torch.cuda.synchronize可以获取正确的all-to-all时间</p>
+<p>8&#x2F;23：获取GPU profile。torch.profiler和nsys一起使用会起冲突，务必仅使用一个，不然会有一个记录不到GPU信息</p>
+<p>8&#x2F;24：尝试实现baseline，如果希望rollout利用training的all-to-all时间做事情，时间上需要并行，资源上需要colocate。但是目前one_step_off_policy、streamRL等时间上将二者并行的方法都是discrete的，这是为了便于调度。需要实现colocate且时间并行的训练方法。</p>
+<p>8&#x2F;25：生病，耳石症。</p>
+<p>8&#x2F;26：在verl中实现Minibatch Pipelining的disvrete和colocate版本，不是很好实现。</p>
+<p>8&#x2F;27：转而实现one-step-off-policy，然而总是遇到各种问题</p>
+<p>8&#x2F;28：解决部分问题，但是参数同步在单机上总出问题</p>
+<p>8&#x2F;29：搬宿舍，报道，尝试各个版本的verl，都不行，社区其他人也遇到此类问题</p>
+<p>8&#x2F;30：制定培养方案，打算直接实现colocate版本的one-step-off-policy</p>
+<p>8&#x2F;31：选课，实现colocate版本的one-step-off-policy，把actor和rollout放在一个class中无法并行，还是需要拆开并做同步</p>
+<p>9&#x2F;1：放在不同的class，这样才会有不同的进程，可以并行，discrete模式下成功，但是colocate无法并行，难道是计算资源有限？弄懂了ray的调度机制。</p>
+<p>9&#x2F;2：colocate无法并行的原因是Verl强制放在一个进程下管理了（新建了actor，并将原来的actor方法进行重新绑定，同时修改了函数签名），可能是为了提高效率，还需要修改相关代码。开了组会，还是需要实现minibatch。</p>
+<h1 id="问题记录"><a href="#问题记录" class="headerlink" title="问题记录"></a>问题记录</h1><ol>
+<li><p><strong>[已解决]</strong> 样例grpo_3b_gsm8k_fsdp2_2_6.sh中，qwen_2_5_3B_Instruct单机8卡可以跑通，但是减少层数为2层反而OOM？</p>
+<p>答：减少层数后，模型胡言乱语，response长度显著变长，内存压力反而更大了。</p>
+</li>
+<li><p>样例grpo_3b_gsm8k_fsdp2_2_6.sh中，换成MoE模型在update_actor阶段异常，样例的fsdp在MoE参数重计算的时候有问题，保存的checkpoint对不上?</p>
+</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">  File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/torch/autograd/__init__.py&quot;</span>, line 353, <span class="keyword">in</span> backward</span><br><span class="line">    _engine_run_backward(</span><br><span class="line">  File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/torch/autograd/graph.py&quot;</span>, line 824, <span class="keyword">in</span> _engine_run_backward</span><br><span class="line">    <span class="built_in">return</span> Variable._execution_engine.run_backward(  <span class="comment"># Calls into the C++ engine to run the backward pass</span></span><br><span class="line">  File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/torch/utils/checkpoint.py&quot;</span>, line 1128, <span class="keyword">in</span> unpack_hook</span><br><span class="line">    frame.check_recomputed_tensors_match(gid)</span><br><span class="line">  File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/torch/utils/checkpoint.py&quot;</span>, line 902, <span class="keyword">in</span> check_recomputed_tensors_match</span><br><span class="line">    raise CheckpointError(</span><br><span class="line">torch.utils.checkpoint.CheckpointError: torch.utils.checkpoint: Recomputed values <span class="keyword">for</span> the following tensors have different metadata than during the forward pass.</span><br><span class="line">tensor at position 178:</span><br><span class="line">saved metadata: &#123;<span class="string">&#x27;shape&#x27;</span>: torch.Size([3149]), <span class="string">&#x27;dtype&#x27;</span>: torch.int64, <span class="string">&#x27;device&#x27;</span>: device(<span class="built_in">type</span>=<span class="string">&#x27;cuda&#x27;</span>, index=0)&#125;</span><br><span class="line">recomputed metadata: &#123;<span class="string">&#x27;shape&#x27;</span>: torch.Size([3249]), <span class="string">&#x27;dtype&#x27;</span>: torch.int64, <span class="string">&#x27;device&#x27;</span>: device(<span class="built_in">type</span>=<span class="string">&#x27;cuda&#x27;</span>, index=0)&#125;</span><br><span class="line">tensor at position 180:</span><br><span class="line">saved metadata: &#123;<span class="string">&#x27;shape&#x27;</span>: torch.Size([3149, 2048]), <span class="string">&#x27;dtype&#x27;</span>: torch.bfloat16, <span class="string">&#x27;device&#x27;</span>: device(<span class="built_in">type</span>=<span class="string">&#x27;cuda&#x27;</span>, index=0)&#125;</span><br><span class="line">recomputed metadata: &#123;<span class="string">&#x27;shape&#x27;</span>: torch.Size([3249, 2048]), <span class="string">&#x27;dtype&#x27;</span>: torch.bfloat16, <span class="string">&#x27;device&#x27;</span>: device(<span class="built_in">type</span>=<span class="string">&#x27;cuda&#x27;</span>, index=0)&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li><p><strong>[已解决]</strong> 样例dapo_7b_math_megatron_4_12.sh中，换成MoE模型，Megatron在模型阶段加载出问题？</p>
+<p>答：需要手动从HF模型转换权重，verl中自动转换对于moe某些层处理不当。</p>
+</li>
+<li><p>**[已解决？]**megatron训练时，出现CUDA Illegal Memory Access during get_actor_weights_info()，<a target="_blank" rel="noopener" href="https://github.com/volcengine/verl/issues/2779">问题</a>在verl中也有issue，未处理。</p>
+<p>答：actor_rollout_ref.actor.megatron.param_offload&#x3D;False，否则就会出现该错误，具体原因是因为offload参数的话，vllm找不到参数同步了，内存上没有数据，肯定内存访问出错。</p>
+</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(TaskRunner pid=166238) cur_name = broadcast_str_from_megatron_pp(cur_name) (TaskRunner pid=166238) File <span class="string">&quot;/workspace/verl-main/verl/utils/megatron_utils.py&quot;</span>, line 640, <span class="keyword">in</span> broadcast_str_from_megatron_pp (TaskRunner pid=166238) torch.distributed.all_gather_object(object_list=obj_output, obj=obj, group=mpu.get_pipeline_model_parallel_group()) (TaskRunner pid=166238) File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/torch/distributed/c10d_logger.py&quot;</span>, line 81, <span class="keyword">in</span> wrapper (TaskRunner pid=166238) <span class="built_in">return</span> func(*args, **kwargs) (TaskRunner pid=166238) File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/torch/distributed/distributed_c10d.py&quot;</span>, line 3027, <span class="keyword">in</span> all_gather_object (TaskRunner pid=166238) input_tensor, local_size = _object_to_tensor(obj, current_device, group) (TaskRunner pid=166238) File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/torch/distributed/distributed_c10d.py&quot;</span>, line 2940, <span class="keyword">in</span> _object_to_tensor (TaskRunner pid=166238) byte_tensor = torch.ByteTensor(byte_storage).to(device) (TaskRunner pid=166238) RuntimeError: CUDA error: an illegal memory access was encountered (TaskRunner pid=166238) CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.</span><br></pre></td></tr></table></figure>
+
+<ol start="5">
+<li>在单机qwen30b_moe_single.sh同步参数时，NNCL出现问题，verl的样例也跑不通，只有在node&#x3D;2的情况下才没有此类错误。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">  File <span class="string">&quot;/workspace/verl-main/recipe/one_step_off_policy/ray_trainer.py&quot;</span>, line 284, <span class="keyword">in</span> init_workers</span><br><span class="line">    self.sync_rollout_weights()</span><br><span class="line">  File <span class="string">&quot;/workspace/verl-main/recipe/one_step_off_policy/ray_trainer.py&quot;</span>, line 300, <span class="keyword">in</span> sync_rollout_weights</span><br><span class="line">    ray.get(self.rollout_wg.sync_rollout_weights())</span><br><span class="line">ray.exceptions.RayTaskError(NcclError): ray::WorkerDict.rollout_sync_rollout_weights() (pid=722413, ip=192.158.0.15, actor_id=d38251a96850052780bbce9501000000, repr=&lt;verl.single_controller.ray.base.WorkerDict object at 0x7f163c4f1960&gt;)</span><br><span class="line">  File <span class="string">&quot;/workspace/verl-main/verl/single_controller/ray/base.py&quot;</span>, line 726, <span class="keyword">in</span> func</span><br><span class="line">    <span class="built_in">return</span> getattr(self.worker_dict[key], name)(*args, **kwargs)</span><br><span class="line">  File <span class="string">&quot;/workspace/verl-main/verl/single_controller/base/decorator.py&quot;</span>, line 515, <span class="keyword">in</span> inner</span><br><span class="line">    <span class="built_in">return</span> func(*args, **kwargs)</span><br><span class="line">  File <span class="string">&quot;/workspace/verl-main/recipe/one_step_off_policy/megatron_workers.py&quot;</span>, line 91, <span class="keyword">in</span> sync_rollout_weights</span><br><span class="line">    collective.broadcast(tensor, src_rank=0, group_name=<span class="string">&quot;actor_rollout&quot;</span>)</span><br><span class="line">  File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/ray/util/collective/collective.py&quot;</span>, line 402, <span class="keyword">in</span> broadcast</span><br><span class="line">    g.broadcast([tensor], opts)</span><br><span class="line">  File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/ray/util/collective/collective_group/nccl_collective_group.py&quot;</span>, line 269, <span class="keyword">in</span> broadcast</span><br><span class="line">    self._collective(tensors, tensors, collective_fn)</span><br><span class="line">  File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/ray/util/collective/collective_group/nccl_collective_group.py&quot;</span>, line 604, <span class="keyword">in</span> _collective</span><br><span class="line">    comms = self._get_nccl_collective_communicator(key, devices)</span><br><span class="line">  File <span class="string">&quot;/usr/local/lib/python3.10/dist-packages/ray/util/collective/collective_group/nccl_collective_group.py&quot;</span>, line 451, <span class="keyword">in</span> _get_nccl_collective_communicator</span><br><span class="line">    nccl_util.groupEnd()</span><br><span class="line">  File <span class="string">&quot;cupy_backends/cuda/libs/nccl.pyx&quot;</span>, line 209, <span class="keyword">in</span> cupy_backends.cuda.libs.nccl.groupEnd</span><br><span class="line">  File <span class="string">&quot;cupy_backends/cuda/libs/nccl.pyx&quot;</span>, line 242, <span class="keyword">in</span> cupy_backends.cuda.libs.nccl.groupEnd</span><br><span class="line">  File <span class="string">&quot;cupy_backends/cuda/libs/nccl.pyx&quot;</span>, line 128, <span class="keyword">in</span> cupy_backends.cuda.libs.nccl.check_status</span><br><span class="line">cupy_backends.cuda.libs.nccl.NcclError: NCCL_ERROR_SYSTEM_ERROR: unhandled system error (run with NCCL_DEBUG=INFO <span class="keyword">for</span> details)</span><br></pre></td></tr></table></figure>
+
+<h1 id="TIPS"><a href="#TIPS" class="headerlink" title="TIPS"></a>TIPS</h1><h2 id="查看CUDA进程"><a href="#查看CUDA进程" class="headerlink" title="查看CUDA进程"></a>查看CUDA进程</h2><p>apt install -y psmisc </p>
+<p>fuser -v &#x2F;dev&#x2F;nvidia*</p>
+<p>或者直接apt-get install nvtop，可视化GPU上的进程</p>
+<h2 id="async和await"><a href="#async和await" class="headerlink" title="async和await"></a>async和await</h2><p>在asyncio中，事件循环是核心组件，它负责注册、调度和执行所有的协程任务。当我们调用<code>asyncio.run()</code>函数时，会创建一个事件循环并运行指定的协程。事件循环会不断地从任务队列中取出待执行的任务，并将它们添加到事件循环中进行调度。</p>
+<p>当一个协程中遇到<code>await</code>关键字时，事件循环会挂起当前协程并将控制权交给其他可执行的协程。被挂起的协程会暂时离开事件循环，并在异步操作完成后恢复执行。</p>
+<p>异步操作完成后，事件循环会将结果传递给对应的Future对象，然后唤醒等待该Future对象的协程，使其继续执行。</p>
+<h2 id="ray调用"><a href="#ray调用" class="headerlink" title="ray调用"></a>ray调用</h2><p>每个actor都被视作一个独立进程，调用ray.get()后执行类（进程）的方法。</p>
+<p>例如</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># A和B均实例化，两个进程</span></span><br><span class="line">A = A_c.remote()</span><br><span class="line">B = B_c.remote()</span><br><span class="line"><span class="comment"># A的a和b方法依次执行，同时B的a执行</span></span><br><span class="line">Aa=A.a()</span><br><span class="line">Ab=A.b()</span><br><span class="line">Ba=B.a()</span><br><span class="line"><span class="comment"># ray.get卡住主程序，直至获取结果</span></span><br><span class="line">ray.get(A.a())</span><br><span class="line">ray.get(A.b())</span><br><span class="line">ray.get(B.a())</span><br></pre></td></tr></table></figure>
+<p>则实际上A.a()和A.b()顺序执行，同时B.a()执行，A和B互不影响。</p>
+<p>由此我们谈一谈verl中的blocking，例如：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@register(<span class="params">dispatch_mode=make_nd_compute_dataproto_dispatch_fn(<span class="params">mesh_name=<span class="string">&quot;rollout&quot;</span></span>),blocking=<span class="literal">True</span></span>)</span></span><br><span class="line"><span class="meta">@GPUMemoryLogger(<span class="params">role=<span class="string">&quot;generate_sequences&quot;</span>, logger=logger</span>)</span></span><br><span class="line"><span class="meta">@DistProfiler.annotate(<span class="params">color=<span class="string">&quot;red&quot;</span></span>)</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">generate_sequences</span>(<span class="params">self, prompts: DataProto</span>)</span><br></pre></td></tr></table></figure>
+
+<p>register的定义如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">register</span>(<span class="params">dispatch_mode=Dispatch.ALL_TO_ALL, execute_mode=Execute.ALL, blocking=<span class="literal">True</span>, materialize_futures=<span class="literal">True</span></span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Register a function with distributed execution configuration.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    This decorator registers a function with specific dispatch and execution modes</span></span><br><span class="line"><span class="string">    for distributed computation. It handles both synchronous and asynchronous</span></span><br><span class="line"><span class="string">    functions, and optionally materializes futures before execution.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Args:</span></span><br><span class="line"><span class="string">        dispatch_mode:</span></span><br><span class="line"><span class="string">            Dispatch mode for computation distribution. Default: Dispatch.ALL_TO_ALL.</span></span><br><span class="line"><span class="string">        execute_mode:</span></span><br><span class="line"><span class="string">            Execute mode for computation distribution. Default: Execute.ALL.</span></span><br><span class="line"><span class="string">        blocking:</span></span><br><span class="line"><span class="string">            Whether the execution should be blocking. Defaults to True.</span></span><br><span class="line"><span class="string">        materialize_futures:</span></span><br><span class="line"><span class="string">            Whether to materialize the data before dispatching. Defaults to True.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Returns:</span></span><br><span class="line"><span class="string">        A decorator that wraps the original function with distributed execution</span></span><br><span class="line"><span class="string">        configuration.</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    _check_dispatch_mode(dispatch_mode=dispatch_mode)</span><br><span class="line">    _check_execute_mode(execute_mode=execute_mode)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">decorator</span>(<span class="params">func</span>):</span><br><span class="line"><span class="meta">        @wraps(<span class="params">func</span>)</span></span><br><span class="line">        <span class="keyword">def</span> <span class="title function_">inner</span>(<span class="params">*args, **kwargs</span>):</span><br><span class="line">            <span class="keyword">if</span> materialize_futures:</span><br><span class="line">                args, kwargs = _materialize_futures(*args, **kwargs)</span><br><span class="line">            <span class="keyword">return</span> func(*args, **kwargs)</span><br><span class="line"></span><br><span class="line"><span class="meta">        @wraps(<span class="params">func</span>)</span></span><br><span class="line">        <span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">async_inner</span>(<span class="params">*args, **kwargs</span>):</span><br><span class="line">            <span class="keyword">if</span> materialize_futures:</span><br><span class="line">                args, kwargs = _materialize_futures(*args, **kwargs)</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">await</span> func(*args, **kwargs)</span><br><span class="line"></span><br><span class="line">        wrapper = async_inner <span class="keyword">if</span> inspect.iscoroutinefunction(func) <span class="keyword">else</span> inner</span><br><span class="line">        attrs = &#123;<span class="string">&quot;dispatch_mode&quot;</span>: dispatch_mode, <span class="string">&quot;execute_mode&quot;</span>: execute_mode, <span class="string">&quot;blocking&quot;</span>: blocking&#125;</span><br><span class="line">        <span class="built_in">setattr</span>(wrapper, MAGIC_ATTR, attrs)</span><br><span class="line">        <span class="keyword">return</span> wrapper</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> decorator</span><br></pre></td></tr></table></figure>
+
+<p>注释的意思是，blocking决定是否被阻塞，我的理解是blocking&#x3D;False的方法将不会阻塞<strong>主进程</strong>(描述算法的driver process)，虽然方法remote过去已经开始执行了，但是不会影响调度，也就是实现同时执行两个stage(如rollout和training)。当然，它对同一进程的任务调度没有影响。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">func_generator</span>(<span class="params">self, method_name, dispatch_fn, collect_fn, execute_fn, blocking</span>):</span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">Functor</span>:</span><br><span class="line">        <span class="keyword">def</span> <span class="title function_">__call__</span>(<span class="params">this, *args, **kwargs</span>):</span><br><span class="line">            args, kwargs = dispatch_fn(<span class="variable language_">self</span>, *args, **kwargs)</span><br><span class="line">            padding_count = kwargs.pop(_padding_size_key, <span class="number">0</span>)</span><br><span class="line">            <span class="comment"># breakpoint()</span></span><br><span class="line">            output = execute_fn(method_name, *args, **kwargs) </span><br><span class="line">            <span class="comment"># breakpoint()</span></span><br><span class="line">            <span class="keyword">if</span> blocking:</span><br><span class="line">                output = ray.get(output) <span class="comment"># 只决定是否block住主程序</span></span><br><span class="line">            output = collect_fn(<span class="variable language_">self</span>, output)</span><br><span class="line">            <span class="keyword">if</span> padding_count &gt; <span class="number">0</span>:</span><br><span class="line">                <span class="keyword">if</span> <span class="built_in">isinstance</span>(output, DataProto):</span><br><span class="line">                    indices = [i <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="built_in">len</span>(output))][:-padding_count]</span><br><span class="line">                    output = output.select_idxs(indices)</span><br><span class="line">                <span class="keyword">elif</span> <span class="built_in">isinstance</span>(output, <span class="built_in">list</span>):</span><br><span class="line">                    output = output[:-padding_count]</span><br><span class="line">            <span class="keyword">return</span> output</span><br><span class="line"></span><br><span class="line">    <span class="comment"># use class type to pass the method_name to get a better observability</span></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">type</span>(method_name, (Functor,), &#123;&#125;)()</span><br></pre></td></tr></table></figure>
+
+<p>不过。Verl中默认把同一resource_pool的actor全部处理成一个类了，在同一进程下，这需要注意，详情参考[文章](<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/31595392436">(78 封私信 &#x2F; 81 条消息) 【AI Infra】【RLHF框架】二、VeRL中colocate实现源码解析 - 知乎</a>)。</p>
+
+</article>
+    
+    
+
+</div>
+<div class="trm-post-next-prev row">
+    <div class="col-lg-12">
+        <!-- title -->
+        <h5 class="trm-title-with-divider">
+            其他文章
+            <span data-number="02"></span>
+        </h5>
+    </div>
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/09/01/paper-review820/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/%E6%96%87%E7%8C%AE%E6%80%BB%E7%BB%93/">
+                    文献总结
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/09/01/paper-review820/" class="trm-anima-link">
+                    文献总结（2025-08-20-2025-09-01）
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/09/01</li>
+                <li>11:02</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/08/20/MOE/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/">
+                    基础知识
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/08/20/MOE/" class="trm-anima-link">
+                    MOE基础
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/08/20</li>
+                <li>11:18</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+</div>
+
+    
+
+
+
+                    <div class="trm-divider footer-divider"></div>
+
+                    <!-- footer -->
+                    <footer class="trm-footer-card trm-scroll-animation">
+
+    
+
+    
+
+    
+        <div class="trm-footer-item">
+            <span>
+                由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 v7.3.0
+            </span>
+            <span class="footer-separator" data-separator=" | "></span>
+            <span> 
+                主题 - 
+                <a rel="noopener" href='https://github.com/MaLuns/hexo-theme-async' target='_blank'>Async</a>
+                v2.2.6
+            </span>
+        </div>
+      
+
+     
+
+     
+</footer>
+                    <!-- footer end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <!-- body end -->
+
+            
+
+            
+<div class="trm-fixed-container">
+    
+    
+        <div class="trm-fixed-btn" data-title="阅读模式" onclick="asyncFun.switchReadMode()">
+            <i class="iconfont fas fa-book-reader"></i>
+        </div>
+    
+    
+    <div id="trm-back-top" class="trm-fixed-btn" data-title="回到顶部">
+        <i class="iconfont fas fa-arrow-up"></i>
+    </div>
+</div>
+        </div>
+      </div>
+      <!-- scroll container end -->
+  </div>
+  <!-- app wrapper end -->
+
+  
+  <!-- Plugin -->
+
+
+
+
+    
+    
+<script src="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+    
+
+    
+
+    
+
+    <!-- 数学公式 -->
+    
+
+    <!-- 评论插件 -->
+    
+        
+
+        
+    
+
+		
+
+
+
+
+    <!-- Service Worker -->
+    
+    <!-- baidu push -->
+    
+
+
+<script id="async-script" src="/js/main.js?v=2.2.6"></script>
+
+<!-- CDN -->
+
+
+    
+
+    
+
+    
+
+
+
+</body>
+
+</html>
