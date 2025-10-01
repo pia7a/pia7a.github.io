@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="x5-fullscreen" content="true">
+<meta name="full-screen" content="yes">
+<meta name="theme-color" content="#317EFB" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
+<meta name="description" content="目的把rollout生成token的step插入到actor_update的all-to-all中. 需要解决的两个问题:  NCCL死锁: 使用两个进程并行rollout和actor_update而不是两个线程.  插入: one all-to-all one step, 使用torch.event通信   调度策略1(抢占式)为避免NCCL死锁，实现并行重叠，设计高、低优先级函数流,  设计并">
+<meta property="og:type" content="article">
+<meta property="og:title" content="verl改进（一）-all-to-all实验分析">
+<meta property="og:url" content="http://example.com/2025/08/21/verl-moe-all2all-3/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="目的把rollout生成token的step插入到actor_update的all-to-all中. 需要解决的两个问题:  NCCL死锁: 使用两个进程并行rollout和actor_update而不是两个线程.  插入: one all-to-all one step, 使用torch.event通信   调度策略1(抢占式)为避免NCCL死锁，实现并行重叠，设计高、低优先级函数流,  设计并">
+<meta property="og:locale">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="article:published_time" content="2025-08-21T08:57:31.000Z">
+<meta property="article:modified_time" content="2025-09-30T11:29:44.809Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="MOE">
+<meta property="article:tag" content="Verl框架">
+<meta property="article:tag" content="性能分析">
+<meta property="article:tag" content="all-to-all">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/404.jpg">
+
+    <meta name="keywords" content="RLHF,Verl框架,性能分析,all-to-all">
+
+
+<title >verl改进（一）-all-to-all实验分析</title>
+
+<!-- Favicon -->
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='16x16' ></link>
+
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='32x32' ></link>
+
+
+
+
+<!-- Plugin -->
+
+
+
+
+    
+<link rel="stylesheet" href="/css/plugins/bootstrap.row.css">
+
+    
+<link rel="stylesheet" href="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.css">
+
+    
+    
+
+
+
+
+<!-- Icon -->
+
+    
+<link rel="stylesheet" href="/css/plugins/font-awesome.min.css">
+
+
+
+
+<!-- Variable -->
+<script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-09-30 19:29:44"};</script>
+
+<!-- Theme mode css -->
+<link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
+<script>
+    let defaultMode = ASYNC_CONFIG.theme.default !=='auto' ?  ASYNC_CONFIG.theme.default : (window.matchMedia("(prefers-color-scheme: light)").matches ? 'style-light' : 'style-dark')
+    let catchMode = localStorage.getItem('theme-mode') || defaultMode;
+    let type = catchMode === 'style-dark' ? 'add' : 'remove';
+    document.documentElement.classList[type]('dark')
+</script>
+
+<!-- CDN -->
+
+
+    
+    
+
+
+
+<!-- Site Analytics -->
+
+ 
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+
+  <!-- app wrapper -->
+  <div class="trm-app-frame">
+
+    <!-- page preloader -->
+    <div class="trm-preloader">
+    <div class="trm-holder">
+        <div class="preloader">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+</div>
+    <!-- page preloader end -->
+
+    <!-- change mode preloader -->
+    <div class="trm-mode-swich-animation-frame">
+    <div class="trm-mode-swich-animation">
+        <i class="i-sun"><i class="iconfont far fa-sun"></i></i>
+        <div class="trm-horizon"></div>
+        <i class="i-moon"><i class="iconfont far fa-moon"></i></i>
+    </div>
+</div>
+    <!-- change mode preloader end -->
+
+      <!-- scroll container -->
+      <div id="trm-dynamic-content" class="trm-swup-animation">
+        <div id="trm-scroll-container" class="trm-scroll-container" style="opacity: 0">
+            <!-- top bar -->
+            <header class="trm-top-bar">
+	<div class="container">
+		<div class="trm-left-side">
+			<!-- logo -->
+<a href="/" class="trm-logo-frame trm-anima-link">
+    
+        <img alt="logo" src="/img/favicon.svg">
+    
+    
+        <div class="trm-logo-text">
+            Async<span>zhiqiang</span>
+        </div>
+    
+</a>
+<!-- logo end -->
+		</div>
+		<div class="trm-right-side">
+			<!-- menu -->
+<div class="trm-menu">
+    <nav>
+        <ul>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/" target="">
+                    首页
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/archives/" target="">
+                    时间线
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/tags/" target="">
+                    标签
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/categories" target="">
+                    分类
+                </a>
+                
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+<!-- menu end -->
+			
+    <!-- mode switcher place -->
+    <div class="trm-mode-switcher-place">
+        <div class="trm-mode-switcher">
+            <i class="iconfont far fa-sun"></i>
+            <input class="tgl tgl-light" id="trm-swich" type="checkbox">
+            <label class="trm-swich" for="trm-swich"></label>
+            <i class="iconfont far fa-moon"></i>
+        </div>
+    </div>
+    <!-- mode switcher place end -->
+
+			
+		</div>
+		<div class="trm-menu-btn">
+			<span></span>
+		</div>
+	</div>
+</header>
+            <!-- top bar end -->
+
+            <!-- body -->
+            
+<div class="trm-content-start">
+    <!-- banner -->
+    <div class="trm-banner">
+    
+    <!-- banner cover -->
+    <img style="object-position:top;object-fit:cover;" alt="banner" class="trm-banner-cover" src="https://pic1.zhimg.com/v2-b3c2c6745b9421a13a3c4706b19223b3_r.jpg">
+    <!-- banner cover end -->
+    
+
+    <!-- banner content -->
+    <div class="trm-banner-content trm-overlay">
+        <div class="container">
+            <div class="row">
+                
+                <div class="col-lg-4"></div>
+                
+                <div class="col-lg-8">
+
+                    <!-- banner title -->
+                    <div class="trm-banner-text ">
+                        <div class="trm-label trm-mb-20">
+                            more paper, more fun
+                        </div>
+                        <h1 class="trm-mb-30 trm-hsmb-font">
+                            verl改进（一）-all-to-all实验分析
+                        </h1>
+
+                        
+                            <ul class="trm-breadcrumbs trm-label">
+                                <li>
+                                    <a href="/" class="trm-anima-link">Home</a>
+                                </li>
+                                <li>
+                                    <span>
+                                        2025
+                                    </span>
+                                </li>
+                            </ul>
+                        
+                    </div>
+                    <!-- banner title end -->
+
+                    <!-- scroll hint -->
+                    <span id="scroll-triger" class="trm-scroll-hint-frame">
+                        <div class="trm-scroll-hint"></div>
+                        <span class="trm-label">Scroll down</span>
+                    </span>
+                    <!-- scroll hint end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- banner content end -->
+</div>
+    <!-- banner end -->
+    <div class="container">
+        <div class="row">
+            
+                <div class="trm-page-sidebar col-lg-4 hidden-sm">
+                    <!-- main card -->
+                    <div class="trm-main-card-frame trm-sidebar">
+    <div class="trm-main-card"> 
+        <!-- card header -->
+<div class="trm-mc-header">
+    <div class="trm-avatar-frame trm-mb-20">
+        <img alt="Avatar" class="trm-avatar" src="/img/avatar.jpg">
+    </div>
+    <h5 class="trm-name trm-mb-15">
+        看雪
+    </h5>
+    
+</div>
+<!-- card header end -->
+        <!-- sidebar social -->
+
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<div class="trm-social">
+    
+        <a href="https://github.com" title="Github" rel="nofollow" target="_blank">
+            <i class="iconfont fab fa-github"></i>
+        </a>
+    
+</div>
+
+<!-- sidebar social end -->
+        <!-- info -->
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<ul class="trm-table trm-mb-20">
+    
+        <li>
+            <div class="trm-label">
+                Residence:
+            </div>
+            <div class="trm-label trm-label-light">
+                Mars
+            </div>
+        </li>
+    
+</ul>
+<!-- info end -->
+
+        
+    </div>
+</div>
+                    <!-- main card end -->
+                </div>
+            
+            <div class="trm-page-content col-lg-8">
+                <div id="trm-content" class="trm-content">
+                    <div class="trm-post-info row hidden-sm">
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-calendar-alt trm-icon"></i><br>
+            08/21
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-clock trm-icon"></i><br>
+            16:57
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div id="post-author" class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-user trm-icon"></i><br>
+            John Doe
+        </div>
+    </div>
+</div>
+<div class="trm-card ">
+    <article id="article-container" class="trm-publication">
+    <h1 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h1><p>把rollout生成token的step插入到actor_update的all-to-all中.</p>
+<p>需要解决的两个问题:</p>
+<ol>
+<li><p>NCCL死锁: 使用两个进程并行rollout和actor_update而不是两个线程.</p>
+</li>
+<li><p>插入: one all-to-all one step, 使用torch.event通信</p>
+</li>
+</ol>
+<h1 id="调度策略1-抢占式"><a href="#调度策略1-抢占式" class="headerlink" title="调度策略1(抢占式)"></a>调度策略1(抢占式)</h1><p>为避免NCCL死锁，实现并行重叠，设计高、低优先级函数流,  设计并行调度方案, 流为线程, 其中运行的函数(任务)具备优先级属性。</p>
+<p>默认训练相关函数为高优先级，推理相关函数为低优先级，其他不涉及计算与通信的操作由默认流处理。</p>
+<h2 id="原则"><a href="#原则" class="headerlink" title="原则"></a>原则</h2><ul>
+<li><p>除默认流与并行期间外,推理流和训练流只能有一个活跃.</p>
+</li>
+<li><p>训练流可抢占推理流.</p>
+</li>
+<li><p>并行只由训练流发起.</p>
+</li>
+<li><p>并行期间, 训练和推理代码执行区间可控.</p>
+</li>
+</ul>
+<h2 id="方案"><a href="#方案" class="headerlink" title="方案"></a>方案</h2><ul>
+<li>通过条件锁的传递信号,wait 挂起线程, notify_all 唤醒被挂起的线程.</li>
+<li>训练流: 其中的函数运行期间可发起抢占或允许并行.</li>
+<li>推理流: 其中的函数中可插入检查点,发现抢占信号后阻塞(挂起),直至被唤醒.</li>
+</ul>
+<h2 id="状态机"><a href="#状态机" class="headerlink" title="状态机"></a>状态机</h2><p>我们只考虑一个高优先级训练流和一个低优先级推理流，再加一个后台运行的默认流（不参与调度）。</p>
+<h3 id="推理流"><a href="#推理流" class="headerlink" title="推理流"></a>推理流</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">stateDiagram-v2</span><br><span class="line">    %% 推理逻辑</span><br><span class="line">    空闲 --&gt; 活跃 : 训练未活跃</span><br><span class="line">    空闲 --&gt; 挂起 : 训练已活跃</span><br><span class="line">    活跃 --&gt; 挂起 : 训练抢占</span><br><span class="line">    挂起 --&gt; 活跃 : 训练允许**并行**</span><br><span class="line">    挂起 --&gt; 活跃 : 训练结束</span><br><span class="line">    活跃 --&gt; 空闲 : 推理结束</span><br></pre></td></tr></table></figure>
+<h3 id="训练流"><a href="#训练流" class="headerlink" title="训练流"></a>训练流</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">stateDiagram-v2</span><br><span class="line">    %% 训练逻辑</span><br><span class="line">    空闲 --&gt; 活跃 : 推理未活跃</span><br><span class="line">    空闲 --&gt; 挂起 : 推理已活跃,发起抢占,等待推理挂起</span><br><span class="line">    活跃 --&gt; 挂起 : 重新抢占,等待推理挂起</span><br><span class="line">    挂起 --&gt; 活跃 : 抢占成功</span><br><span class="line">    挂起 --&gt; 活跃 : 推理结束</span><br><span class="line">    活跃 --&gt; 空闲 : 训练结束</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">sequenceDiagram</span><br><span class="line">    participant Infer as 推理流</span><br><span class="line">    participant Train as 训练流</span><br><span class="line">    participant Sched as 调度器</span><br><span class="line"></span><br><span class="line">    Note over Infer,Train: 系统启动</span><br><span class="line"></span><br><span class="line">    Infer-&gt;&gt;Sched: 请求推理</span><br><span class="line">    Sched--&gt;&gt;Infer: 允许执行</span><br><span class="line"></span><br><span class="line">    Train-&gt;&gt;Sched: 请求训练</span><br><span class="line">    Sched--&gt;&gt;Train: 推理活跃,通知挂起</span><br><span class="line">    Train-&gt;&gt;Sched: 请求抢占</span><br><span class="line">    Sched--&gt;&gt;Infer: 通知挂起</span><br><span class="line">    Sched--&gt;&gt;Train: 通知挂起</span><br><span class="line">    Infer-&gt;&gt;Sched:  挂起等待</span><br><span class="line">    Sched--&gt;&gt;Train: 唤醒训练线程</span><br><span class="line">    </span><br><span class="line">	Train--&gt;&gt;Train: 异步发射all-to-all op</span><br><span class="line">    Train-&gt;&gt;Sched: allow_par() 允许推理并行</span><br><span class="line">    Sched--&gt;&gt;Infer: 唤醒推理线程</span><br><span class="line">    Infer--&gt;&gt;Infer: 一次step</span><br><span class="line">	Train--&gt;&gt;Train: 同时all-to-all通信</span><br><span class="line">    Train-&gt;&gt;Sched: 通信结束,请求抢占,挂起</span><br><span class="line">    Infer-&gt;&gt;Sched: check_preempt(),唤醒训练,挂起</span><br><span class="line">    Sched--&gt;&gt;Train: 训练继续执行</span><br><span class="line"></span><br><span class="line">    Note over Infer,Train: 循环</span><br><span class="line"></span><br><span class="line">    Infer-&gt;&gt;Sched: 推理结束</span><br><span class="line">    Train-&gt;&gt;Sched: 训练结束</span><br><span class="line">    Sched--&gt;&gt;Sched: 回到空闲(Idle)</span><br><span class="line">    </span><br><span class="line">    Note over Infer,Train: 系统结束</span><br></pre></td></tr></table></figure>
+
+<p><strong>[BUG]</strong>: 抢占式调度中各个rank之间塞的step个数可能不一致(不可控),导致互相等待死锁:</p>
+<p>只有推理:</p>
+<p><img src="/2025/08/21/verl-moe-all2all-3/Users\25490\Desktop\blog\source_posts\verl-moe-all2all-3\step.png" alt="image-20250926183331575"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>重叠：</p>
+<p><img src="/2025/08/21/verl-moe-all2all-3/Users\25490\Desktop\blog\source_posts\verl-moe-all2all-3\overlap.png" alt="image-20250926183736109"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h1 id="调度策略2-严格执行训练推理交替"><a href="#调度策略2-严格执行训练推理交替" class="headerlink" title="调度策略2(严格执行训练推理交替)"></a>调度策略2(严格执行训练推理交替)</h1><h2 id="原则-1"><a href="#原则-1" class="headerlink" title="原则"></a>原则</h2><ul>
+<li>除默认流与并行(推理step与训练all-to-all重叠)外,推理流和训练流只能有一个活跃.</li>
+<li>推理训练交替执行,每次执行检查点之间的代码.</li>
+<li>各rank之间kernel发射顺序一致.</li>
+</ul>
+<h2 id="方案-1"><a href="#方案-1" class="headerlink" title="方案"></a>方案</h2><ol>
+<li><strong>推理先启动</strong>，进入检查点，发现步数超过训练 → 唤醒训练，自己挂起；</li>
+<li><strong>训练线程执行</strong>， 异步发射all-to-all kernel → 唤醒推理，自己挂起；</li>
+<li><strong>推理线程执行</strong>，完成<strong>一个</strong> step, → 唤醒训练，自己挂起；</li>
+<li>双方交替执行，一个推理的step与训练的all-to-all kernel重叠；</li>
+<li>一旦一方完成，并行区域关闭, 另一方被唤醒并执行直至完成；</li>
+</ol>
+<h3 id="推理检查点（infer-check-point）"><a href="#推理检查点（infer-check-point）" class="headerlink" title="推理检查点（infer_check_point）"></a>推理检查点（<code>infer_check_point</code>）</h3><ul>
+<li>每执行一步推理，调用 <code>sched.infer_check_point()</code>：<ul>
+<li>若 <strong>推理步数 &gt; 训练步数</strong>，则挂起自己并唤醒训练；</li>
+<li>否则继续执行。</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">while self.llm_engine.has_unfinished_requests():</span><br><span class="line">    sched.infer_check_point()   # 检查点</span><br><span class="line">    step_outputs = self.llm_engine.step()</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="训练检查点（train-check-point）"><a href="#训练检查点（train-check-point）" class="headerlink" title="训练检查点（train_check_point）"></a>训练检查点（<code>train_check_point</code>）</h3><ul>
+<li>每次 <strong>all-to-all 通信异步发射</strong>后，调用 <code>sched.train_check_point()</code>：<ul>
+<li>若 <strong>训练步数 &gt;&#x3D; 推理步数</strong>，则挂起自己并唤醒推理；</li>
+<li>通信完成后再恢复执行。</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">handle = dist.all_to_all_single(..., async_op=True)</span><br><span class="line"></span><br><span class="line">sched.train_check_point()   # 训练进入挂起，推理获得执行权</span><br><span class="line">handle.wait()               # GPU 完成通信</span><br></pre></td></tr></table></figure>
+
+<h3 id="描述"><a href="#描述" class="headerlink" title="描述"></a>描述</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">Algorithm: Parallel Scheduling of Rollout and Training</span><br><span class="line"></span><br><span class="line">Require:</span><br><span class="line">    Rollout engine R</span><br><span class="line">    Training engine T</span><br><span class="line">    Scheduler S</span><br><span class="line">Ensure:</span><br><span class="line">    Overlap rollout steps with training all-to-all communication</span><br><span class="line"></span><br><span class="line">Initialize:</span><br><span class="line">    check_count ← 0</span><br><span class="line">    allow_count ← -1</span><br><span class="line"></span><br><span class="line">Enter parallel zone</span><br><span class="line">While (R has unfinished requests) and (T not finished):</span><br><span class="line">    -- Rollout thread --</span><br><span class="line">        check_count ← check_count + 1</span><br><span class="line">        If check_count &gt; allow_count:</span><br><span class="line">            Suspend rollout</span><br><span class="line">            Wake up training</span><br><span class="line">            Wait until low_thread_activate = True</span><br><span class="line">        Execute one rollout step: R.step()</span><br><span class="line"></span><br><span class="line">    -- Training thread --</span><br><span class="line">        Launch async all-to-all: handle ← all2all_async()</span><br><span class="line">        allow_count ← allow_count + 1</span><br><span class="line">        If allow_count ≥ check_count:</span><br><span class="line">            Suspend training</span><br><span class="line">            Wake up rollout</span><br><span class="line">            Wait until high_thread_activate = True</span><br><span class="line">        Wait for handle.wait() to complete</span><br><span class="line"></span><br><span class="line">Exit parallel zone</span><br><span class="line">Notify all waiting threads</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">sequenceDiagram</span><br><span class="line">    participant Infer as 推理线程</span><br><span class="line">    participant Train as 训练线程</span><br><span class="line">    participant Sched as 调度器</span><br><span class="line"></span><br><span class="line">    Note over Infer,Train: 并行区域开始</span><br><span class="line"></span><br><span class="line">    Infer-&gt;&gt;Sched: infer_check_point()</span><br><span class="line">    alt 推理步数 &gt; 训练步数</span><br><span class="line">        Sched--&gt;&gt;Infer: 挂起推理</span><br><span class="line">        Sched--&gt;&gt;Train: 唤醒训练</span><br><span class="line">    else</span><br><span class="line">        Sched--&gt;&gt;Infer: 继续执行</span><br><span class="line">    end</span><br><span class="line"></span><br><span class="line">    Train-&gt;&gt;Sched: train_check_point()</span><br><span class="line">    alt 训练追上推理</span><br><span class="line">        Sched--&gt;&gt;Train: 挂起训练</span><br><span class="line">        Sched--&gt;&gt;Infer: 唤醒推理</span><br><span class="line">    else</span><br><span class="line">        Sched--&gt;&gt;Train: 继续执行</span><br><span class="line">    end</span><br><span class="line"></span><br><span class="line">    loop 交替执行</span><br><span class="line">        Infer--&gt;&gt;Infer: 执行一步 R.step()</span><br><span class="line">        Train--&gt;&gt;Train: 异步 all-to-all 通信</span><br><span class="line">    end</span><br><span class="line"></span><br><span class="line">    Note over Infer,Train: 一方完成 → 唤醒另一方</span><br><span class="line">    Sched--&gt;&gt;Infer: 并行区域结束</span><br><span class="line">    Sched--&gt;&gt;Train: 并行区域结束</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><img src="/2025/08/21/verl-moe-all2all-3/Users\25490\Desktop\blog\source_posts\verl-moe-all2all-3\overlap2.png" alt="image-20250930153757188"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h1 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h1><ul>
+<li><strong>Qwen3-30B-A3B-Instruct-2507</strong>，隐藏层仅保留2层</li>
+<li>actor_update: Megatron(EP&#x3D;8, TP&#x3D;1)</li>
+<li>rollout: VLLM(TP&#x3D;1)</li>
+</ul>
+<h2 id="8-GPUs"><a href="#8-GPUs" class="headerlink" title="8 GPUs"></a>8 GPUs</h2><h3 id="实验1-增加mini-batch-size-减少pipline的份数"><a href="#实验1-增加mini-batch-size-减少pipline的份数" class="headerlink" title="实验1: 增加mini_batch_size(减少pipline的份数)"></a>实验1: 增加mini_batch_size(减少pipline的份数)</h3><ul>
+<li><strong>train_batch_size&#x3D;1024</strong></li>
+<li>max_prompt_length&#x3D;256 </li>
+<li>max_response_length&#x3D;1024 </li>
+<li><strong>mini_batch_size&#x3D;128</strong></li>
+<li>micro_batch_size_per_gpu&#x3D;2</li>
+<li><strong>rollout_n&#x3D;4</strong></li>
+<li>param_offload&#x3D;True </li>
+<li>grad_offload&#x3D;True</li>
+<li>optimizer_offload&#x3D;True</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>time per batch</th>
+<th>归一化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>106.08s</td>
+<td>1</td>
+</tr>
+<tr>
+<td>minibatch</td>
+<td>205.76s</td>
+<td>1.94</td>
+</tr>
+<tr>
+<td>minibatch_pipline</td>
+<td>229.08s</td>
+<td>2.16</td>
+</tr>
+<tr>
+<td>stream_minibatch_pipline</td>
+<td>183.64s</td>
+<td>1.73</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>train_batch_size&#x3D;1024</strong></li>
+<li>max_prompt_length&#x3D;256 </li>
+<li>max_response_length&#x3D;1024 </li>
+<li><strong>mini_batch_size&#x3D;256</strong></li>
+<li>micro_batch_size_per_gpu&#x3D;2</li>
+<li><strong>rollout_n&#x3D;4</strong></li>
+<li>param_offload&#x3D;True </li>
+<li>grad_offload&#x3D;True</li>
+<li>optimizer_offload&#x3D;True</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>time per batch</th>
+<th>归一化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>107.57s</td>
+<td>1</td>
+</tr>
+<tr>
+<td>minibatch</td>
+<td>154.57s</td>
+<td>1.44</td>
+</tr>
+<tr>
+<td>minibatch_pipline</td>
+<td>173.39s</td>
+<td>1.61</td>
+</tr>
+<tr>
+<td>stream_minibatch_pipline</td>
+<td>149.44s</td>
+<td>1.39</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>train_batch_size&#x3D;1024</strong></li>
+<li>max_prompt_length&#x3D;256 </li>
+<li>max_response_length&#x3D;1024 </li>
+<li><strong>mini_batch_size&#x3D;512</strong></li>
+<li>micro_batch_size_per_gpu&#x3D;2</li>
+<li><strong>rollout_n&#x3D;4</strong></li>
+<li>param_offload&#x3D;True </li>
+<li>grad_offload&#x3D;True</li>
+<li>optimizer_offload&#x3D;True</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>time per batch</th>
+<th>归一化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>107.21s</td>
+<td>1</td>
+</tr>
+<tr>
+<td>minibatch</td>
+<td>125.65s</td>
+<td>1.17</td>
+</tr>
+<tr>
+<td>minibatch_pipline</td>
+<td>150.27s</td>
+<td>1.40</td>
+</tr>
+<tr>
+<td>stream_minibatch_pipline</td>
+<td>127.34s</td>
+<td>1.19</td>
+</tr>
+</tbody></table>
+<h4 id="分析"><a href="#分析" class="headerlink" title="分析:"></a>分析:</h4><p><img src="/2025/08/21/verl-moe-all2all-3/Users\25490\Desktop\blog\source_posts\verl-moe-all2all-3\test_minibatchs_direct.png" alt="test_minibatchs_direct"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<ul>
+<li>minibatch的份数越少,因此而引起的时间消耗越小(时间消耗的原因包括推理的batch打不满,多次的数据RPC传输,模型参数梯度与优化器等offload开销).  </li>
+<li>比较baseline(绿色)和minibatch(橘黄色), 2-&gt;18s, 4-&gt;47s, 8-&gt;99s, 切minibtch造成的时间开销基本呈线性.</li>
+<li>直接重叠推理和计算会额外增加时间损耗,原因还在查找.</li>
+</ul>
+<p>以minibatch&#x3D;128时, stream_minibatch_pipline与baseline的profile为例:</p>
+<p>stream_minibatch_pipline(124.25s): </p>
+<p><img src="/2025/08/21/verl-moe-all2all-3/Users\25490\Desktop\blog\source_posts\verl-moe-all2all-3\experience1_stream_minibatch_pipline.png" alt="image-20250921202358741"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>baseline(106.08s):</p>
+<p><img src="/2025/08/21/verl-moe-all2all-3/Users\25490\Desktop\blog\source_posts\verl-moe-all2all-3\experience1_normal_pipline.png" alt="image-20250921202526861"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>stream_minibatch_pipline多了大概18s</p>
+<h3 id="实验2-增加response-length"><a href="#实验2-增加response-length" class="headerlink" title="实验2: 增加response length"></a>实验2: 增加response length</h3><ul>
+<li>train_batch_size&#x3D;512</li>
+<li><strong>max_prompt_length&#x3D;512</strong> </li>
+<li><strong>max_response_length&#x3D;512</strong></li>
+<li>mini_batch_size&#x3D;256</li>
+<li>micro_batch_size_per_gpu&#x3D;2</li>
+<li>rollout_n&#x3D;4</li>
+<li>param_offload&#x3D;True </li>
+<li>grad_offload&#x3D;True</li>
+<li>optimizer_offload&#x3D;True</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>time per batch</th>
+<th>归一化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>55.15s</td>
+<td>1</td>
+</tr>
+<tr>
+<td>minibatch</td>
+<td>65.38s</td>
+<td>1.19</td>
+</tr>
+<tr>
+<td>minibatch_pipline</td>
+<td>70.77s</td>
+<td>1.28</td>
+</tr>
+<tr>
+<td>minibatch_pipline_all2all</td>
+<td><strong>78.27</strong>s</td>
+<td>1.42</td>
+</tr>
+<tr>
+<td>stream_minibatch_pipline</td>
+<td>66.51s</td>
+<td>1.21</td>
+</tr>
+</tbody></table>
+<ul>
+<li>train_batch_size&#x3D;512</li>
+<li><strong>max_prompt_length&#x3D;512</strong> </li>
+<li><strong>max_response_length&#x3D;1024</strong> </li>
+<li>mini_batch_size&#x3D;256</li>
+<li>micro_batch_size_per_gpu&#x3D;2</li>
+<li>rollout_n&#x3D;4</li>
+<li>param_offload&#x3D;True </li>
+<li>grad_offload&#x3D;True</li>
+<li>optimizer_offload&#x3D;True</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>time per batch</th>
+<th>归一化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>67.48s</td>
+<td>1</td>
+</tr>
+<tr>
+<td>minibatch</td>
+<td>82.32s</td>
+<td>1.22</td>
+</tr>
+<tr>
+<td>minibatch_pipline</td>
+<td>89.06s</td>
+<td>1.32</td>
+</tr>
+<tr>
+<td>minibatch_pipline_all2all</td>
+<td><strong>97.77</strong>s</td>
+<td>1.45</td>
+</tr>
+<tr>
+<td>stream_minibatch_pipline</td>
+<td>79.30s</td>
+<td>1.18</td>
+</tr>
+<tr>
+<td>stream_minibatch</td>
+<td>78.96s</td>
+<td>1.17</td>
+</tr>
+</tbody></table>
+<ul>
+<li>train_batch_size&#x3D;512</li>
+<li><strong>max_prompt_length&#x3D;512</strong> </li>
+<li><strong>max_response_length&#x3D;2048</strong> </li>
+<li>mini_batch_size&#x3D;256</li>
+<li>micro_batch_size_per_gpu&#x3D;2</li>
+<li>rollout_n&#x3D;4</li>
+<li>param_offload&#x3D;True </li>
+<li>grad_offload&#x3D;True</li>
+<li>optimizer_offload&#x3D;True</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>time per batch</th>
+<th>归一化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>78.60s</td>
+<td>1</td>
+</tr>
+<tr>
+<td>minibatch</td>
+<td>94.40s</td>
+<td>1.20</td>
+</tr>
+<tr>
+<td>minibatch_pipline_all2all</td>
+<td><strong>114.17</strong>s</td>
+<td>1.45</td>
+</tr>
+<tr>
+<td>minibatch_pipline</td>
+<td>100.39s</td>
+<td>1.28</td>
+</tr>
+<tr>
+<td>stream_minibatch_pipline</td>
+<td>95.94s</td>
+<td>1.22</td>
+</tr>
+</tbody></table>
+<ul>
+<li>train_batch_size&#x3D;1024</li>
+<li>max_prompt_length&#x3D;1024 </li>
+<li><strong>max_response_length&#x3D;4096</strong> </li>
+<li>mini_batch_size&#x3D;512</li>
+<li>micro_batch_size_per_gpu&#x3D;2</li>
+<li>rollout_n&#x3D;4</li>
+<li>param_offload&#x3D;True </li>
+<li>grad_offload&#x3D;True</li>
+<li>optimizer_offload&#x3D;True</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>time per batch</th>
+<th>归一化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>148.62s</td>
+<td>1</td>
+</tr>
+<tr>
+<td>minibatch</td>
+<td>178.26s</td>
+<td>1.20</td>
+</tr>
+<tr>
+<td>minibatch_pipline</td>
+<td>OOM</td>
+<td>—</td>
+</tr>
+<tr>
+<td>stream_minibatch_pipline</td>
+<td>170.05s</td>
+<td>1.14</td>
+</tr>
+<tr>
+<td>stream_minibatch</td>
+<td>166.71s</td>
+<td>1.12</td>
+</tr>
+</tbody></table>
+<h1 id="分析-1"><a href="#分析-1" class="headerlink" title="分析"></a>分析</h1><p>为什么训练和推理重叠会增加时间？</p>
+<ul>
+<li><p>VLLM每次step的时间随生成长度增加而增加</p>
+</li>
+<li><p>将样本生成与训练并行有一个问题,因为训练需要占据内存,这减少了KV缓存的空间,为了防止OOM,VLLM会因此减少批处理的大小,进而<strong>减少吞吐</strong>,增加时间.</p>
+</li>
+</ul>
+<p>为什么all-to-all和推理重叠后时间更长了？</p>
+<ul>
+<li><p>总体来说，rollout整体和training重叠阶段更多，所以耗时比直接重叠还变长了一些</p>
+<ol>
+<li>直接重叠：</li>
+</ol>
+<p><img src="/2025/08/21/verl-moe-all2all-3/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20250930155450797.png" alt="image-20250930155450797"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<ol start="2">
+<li>调度策略2：</li>
+</ol>
+<p><img src="/2025/08/21/verl-moe-all2all-3/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20250930155406118.png" alt="image-20250930155406118"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+</li>
+</ul>
+<p>ToDo:</p>
+<ol>
+<li>耗时问题，重叠后耗时更长，准备查找原因</li>
+<li>显存问题，推理和训练并行增大峰值显存，常OOM，方法性质导致</li>
+</ol>
+<h2 id="16GPUs"><a href="#16GPUs" class="headerlink" title="16GPUs"></a>16GPUs</h2><h3 id="实验1-增加response-length"><a href="#实验1-增加response-length" class="headerlink" title="实验1: 增加response length"></a>实验1: 增加response length</h3><ul>
+<li>train_batch_size&#x3D;1024</li>
+<li>max_prompt_length&#x3D;1024 </li>
+<li><strong>max_response_length&#x3D;4096</strong> </li>
+<li>mini_batch_size&#x3D;512</li>
+<li>micro_batch_size_per_gpu&#x3D;2</li>
+<li>rollout_n&#x3D;4</li>
+<li>param_offload&#x3D;True </li>
+<li>grad_offload&#x3D;True</li>
+<li>optimizer_offload&#x3D;True</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>time per batch</th>
+<th>归一化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>126.03s</td>
+<td>1</td>
+</tr>
+<tr>
+<td>stream_minibatch_pipline</td>
+<td>125.29s</td>
+<td>0.99</td>
+</tr>
+</tbody></table>
+<h1 id="工作记录"><a href="#工作记录" class="headerlink" title="工作记录"></a>工作记录</h1><p>9-19: 实现多进程,发现绑定pg的时候会卡住,并不好搞,想了想还是退回到单进程,但是actor和rollout放到两个不同的worker中.结果这样发现也需要同步参数.</p>
+<p>9-20:NCCL是在多线程下是不安全的,但是多进程下需要考虑同步参数的问题,进程间通信额外引起不必要的耗时,或许没有必要引入多线程,通过调度确定执行顺序,单线程也可以做到overlap,毕竟实际计算是GPU在做.</p>
+<p>9-21:想到用条件锁来解决问题,让多线程模拟单线程,控制并行区间.另外,stream minibatch pipline与minibatch pipline能加速多少与samples的分布关系挺大.</p>
+<p>9-22:调试条件锁，我希望控制并行期间，推理跑固定的step（因为锁是抢占的），这样程序的行为可预测。</p>
+<p>9-23:台风来了，调试了限制最小step数目，还需要限制最大step数目,整理入党材料</p>
+<p>9-24:调试代码,等机器资源</p>
+<p>9-25:血泪教训,修改代码一定要谨慎(之前那么写一定有它的理由),一定要写注释.多次release vllm会导致意外错误. 另外,高低优先级有些naive,想想如何拓展, result把结果也标号,看是否可以支持异步调度. 注意,single-controller和worker都并行才会并行</p>
+<p>9-26: 推理一直没开TP,所以推理时间很少. 即便顺利调度,也需要设计算法使overlap率最大才行. 一直没法overlap, 要不然是主线程卡住,要不然是worker卡住,要不然是调用函数不大对. overlap之后反而变慢了,难道是并行使得显存不够,反而拖慢了? vllm的step时间是线性变长的. VLLM用TP还是不行</p>
+<p>9-27: 如果不追求all-to-all并行,只是抢占呢? 在stream-minipipline里面, 开TP仍会卡住.关键点在于,目前设计的重叠机制依赖于多线程对锁的抢占,这可能导致在每个rank上抢占的顺序不同,从而互相等待(例如,rank 0上训练线程抢占较快,vllm step 1后即切换至训练线程;而rank 1上训练线程抢占较慢,错过了vllm step1完成后的check point, 这种情况下, rank 1的vllm 进行step2需要通信, 会等rank 0, 但是rank 0 已经是训练阶段了, 同样, rank 0 训练需要通信也在等rank 1, 但rank 1还在推理, 互相等待死锁). stream_minibatch在reponse很长时卡死,不要把release写在worker里面,要最后统一release<br>9-28: 程序卡住,但GPU没有打满,要不然是线程挂起等待,要不然是队列get一直等(类似原因<br>9-29: vllm和megatron的模型参数是共享的吗?感觉论文和代码不太一致.可以把overlap不放到训练里面</p>
+<p>9-30：实现了，但是时间反而变长，另外卡住可能是推理完全盖过训练了，profile 2048再看看</p>
+<h1 id="Tips"><a href="#Tips" class="headerlink" title="Tips"></a>Tips</h1><ol>
+<li><p>[NCCL在多线程下并适用]([Thread Safety — NCCL 2.28.3 documentation](<a target="_blank" rel="noopener" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/threadsafety.html#:~:text=Under">https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/threadsafety.html#:~:text=Under</a> multi-thread environment%2C it is not allowed to,multiple threads (see Using multiple NCCL communicators concurrently).))官方文档不建议多线程并发NCCL,原因如下:</p>
+<p>在分布式训练里，<strong>通信原语必须在所有 rank 上以相同顺序执行</strong>，否则就会死锁,如rank0: all_to_all() -&gt; all_gather()<br>rank1: all_gather() -&gt; all_to_all()   # ❌ 不一致，必死锁 </p>
+<p>[NCCL通信并发](<a target="_blank" rel="noopener" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/communicators.html#multi-thread-concurrent-usage">Creating a Communicator — NCCL 2.28.3 documentation</a>),这篇文章也讲述了原因:所有rank上通信kernel的order顺序必须一致,只要这点保证了,多线程也是可以的(通常多线程不会考虑这一点).</p>
+<p>另外,如果希望通信并发,也需要用不同的communicator, 对NCCL和CUDA版本也有要求,好在不同的框架一般都是不同的</p>
+</li>
+<li><p>verl中Rollout是如何加载参数的?</p>
+</li>
+</ol>
+<ul>
+<li>首先, 会把actor最新的参数load回GPU.,通过per_tensor_generator生成迭代器,逐个按照论文的方式零冗余根据并行策略把Tensor准备好.搞迭代器是因为整个model会OOM,注意这里面有些张量是共享原来的,有些需要broadcast或gather什么的新建(static_dict就是拷贝,通信操作也是拷贝,只遍历参数是引用).</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">rollout_mode</span>(<span class="params">self</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Context switch hybridengine to rollout mode.&quot;&quot;&quot;</span></span><br><span class="line">    <span class="comment">#aggressive_empty_cache(force_sync=True)</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>._is_offload_param:</span><br><span class="line">        load_megatron_model_to_gpu(<span class="variable language_">self</span>.actor.actor_module, load_grad=<span class="literal">False</span>)</span><br><span class="line">        <span class="comment"># load_megatron_model_to_gpu(self.actor_module, load_grad=False)</span></span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.bridge <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">        per_tensor_param = <span class="variable language_">self</span>.bridge.export_weights(<span class="variable language_">self</span>.actor.actor_module)</span><br><span class="line">        <span class="comment"># per_tensor_param = self.bridge.export_weights(self.actor_module)</span></span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        per_tensor_param = per_tensor_generator(</span><br><span class="line">            <span class="variable language_">self</span>.actor.actor_module,</span><br><span class="line">            <span class="variable language_">self</span>.actor_model_config,</span><br><span class="line">            <span class="variable language_">self</span>.weight_converter,</span><br><span class="line">            <span class="variable language_">self</span>.tf_config,</span><br><span class="line">            <span class="variable language_">self</span>.layer_name_mapping,</span><br><span class="line">        )</span><br><span class="line">        <span class="comment"># per_tensor_param = per_tensor_generator(</span></span><br><span class="line">        <span class="comment">#     self.actor_module,</span></span><br><span class="line">        <span class="comment">#     self.actor_model_config,</span></span><br><span class="line">        <span class="comment">#     self.weight_converter,</span></span><br><span class="line">        <span class="comment">#     self.tf_config,</span></span><br><span class="line">        <span class="comment">#     self.layer_name_mapping,</span></span><br><span class="line">        <span class="comment"># )</span></span><br><span class="line"></span><br><span class="line">    set_expandable_segments(<span class="literal">False</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">await</span> <span class="variable language_">self</span>.rollout.resume(tags=[<span class="string">&quot;weights&quot;</span>])</span><br><span class="line">    <span class="keyword">await</span> <span class="variable language_">self</span>.rollout.update_weights(per_tensor_param)</span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>._is_offload_param:</span><br><span class="line">        offload_megatron_model_to_cpu(<span class="variable language_">self</span>.actor.actor_module)</span><br><span class="line">    aggressive_empty_cache(force_sync=<span class="literal">True</span>)</span><br><span class="line">    <span class="keyword">await</span> <span class="variable language_">self</span>.rollout.resume(tags=[<span class="string">&quot;kv_cache&quot;</span>])</span><br><span class="line"></span><br><span class="line">    <span class="comment"># important: need to manually set the random states of each tp to be identical.</span></span><br><span class="line">    <span class="variable language_">self</span>.torch_random_states = get_torch_device().get_rng_state()</span><br><span class="line">    get_torch_device().set_rng_state(<span class="variable language_">self</span>.gen_random_states)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>update_weights会更新参数,这个会调用&#x2F;usr&#x2F;local&#x2F;lib&#x2F;python3.10&#x2F;dist-packages&#x2F;vllm&#x2F;model_executor&#x2F;models&#x2F;utils.py</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line">   <span class="keyword">def</span> <span class="title function_">_load_module</span>(<span class="params"></span></span><br><span class="line"><span class="params">       self,</span></span><br><span class="line"><span class="params">       base_prefix: <span class="built_in">str</span>,</span></span><br><span class="line"><span class="params">       module: nn.Module,</span></span><br><span class="line"><span class="params">       weights: Iterable[<span class="built_in">tuple</span>[<span class="built_in">str</span>, torch.Tensor]],</span></span><br><span class="line"><span class="params">   </span>) -&gt; Iterable[<span class="built_in">str</span>]:</span><br><span class="line">       <span class="keyword">if</span> <span class="built_in">isinstance</span>(module, PPMissingLayer):</span><br><span class="line">           <span class="keyword">return</span></span><br><span class="line"></span><br><span class="line">       <span class="comment"># Avoid infinite recursion since this function is typically</span></span><br><span class="line">       <span class="comment"># called inside load_weights of the module itself</span></span><br><span class="line">       <span class="keyword">if</span> module != <span class="variable language_">self</span>.module:</span><br><span class="line">           module_load_weights = <span class="built_in">getattr</span>(module, <span class="string">&quot;load_weights&quot;</span>, <span class="literal">None</span>)</span><br><span class="line">           <span class="keyword">if</span> <span class="built_in">callable</span>(module_load_weights):</span><br><span class="line">               loaded_params = module_load_weights(weights)</span><br><span class="line">               <span class="keyword">if</span> loaded_params <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">                   logger.warning(</span><br><span class="line">                       <span class="string">&quot;Unable to collect loaded parameters &quot;</span></span><br><span class="line">                       <span class="string">&quot;for module %s&quot;</span>, module)</span><br><span class="line">               <span class="keyword">else</span>:</span><br><span class="line">                   <span class="keyword">yield</span> <span class="keyword">from</span> <span class="built_in">map</span>(</span><br><span class="line">                       <span class="keyword">lambda</span> x: <span class="variable language_">self</span>._get_qualname(base_prefix, x),</span><br><span class="line">                       loaded_params,</span><br><span class="line">                   )</span><br><span class="line"></span><br><span class="line">       child_modules = <span class="built_in">dict</span>(module.named_children())</span><br><span class="line">       child_params = <span class="built_in">dict</span>(module.named_parameters(recurse=<span class="literal">False</span>))</span><br><span class="line"></span><br><span class="line">       <span class="comment"># Add missing tensors the weight loader needs to be able to load</span></span><br><span class="line">       <span class="comment"># that aren&#x27;t registered as params, e.g., batchnorm statistics.</span></span><br><span class="line">       <span class="variable language_">self</span>._add_loadable_non_param_tensors(module, child_params)</span><br><span class="line"></span><br><span class="line">       <span class="keyword">for</span> child_prefix, child_weights <span class="keyword">in</span> <span class="variable language_">self</span>._groupby_prefix(weights):</span><br><span class="line">           prefix = <span class="variable language_">self</span>._get_qualname(base_prefix, child_prefix)</span><br><span class="line"></span><br><span class="line">           <span class="keyword">if</span> child_prefix <span class="keyword">in</span> child_modules:</span><br><span class="line">               <span class="keyword">if</span> <span class="variable language_">self</span>._can_skip(prefix + <span class="string">&quot;.&quot;</span>):</span><br><span class="line">                   logger.debug(<span class="string">&quot;Skipping module %s&quot;</span>, prefix)</span><br><span class="line"></span><br><span class="line">                   <span class="keyword">continue</span></span><br><span class="line">               <span class="comment"># breakpoint()</span></span><br><span class="line">               <span class="keyword">yield</span> <span class="keyword">from</span> <span class="variable language_">self</span>._load_module(prefix,</span><br><span class="line">                                            child_modules[child_prefix],</span><br><span class="line">                                            child_weights)</span><br><span class="line">......</span><br></pre></td></tr></table></figure>
+<p>而module_load_weights &#x3D; getattr(module, “load_weights”, None)会加载模型(如qwen3什么的)里面的加载参数的模块,这里面会重新拷贝(模型执行也是在这里面).<br>总的来说,更新完之后,vllm会有一份自己的模型参数,和megatron就没关系了</p>
+<ol start="3">
+<li>在rollout添加参数:<br>如果我们想在bash中添加一个新参数overlap:</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">python3 -m recipe.minibatch_pipline.main_ppo \</span><br><span class="line">    --config-name=<span class="string">&#x27;ppo_megatron_trainer.yaml&#x27;</span>\</span><br><span class="line">    algorithm.adv_estimator=grpo \</span><br><span class="line">    +algorithm.recipe=<span class="variable">$RECIPE_MODE</span> \</span><br><span class="line">    actor_rollout_ref.rollout.multi_thread=True \</span><br><span class="line">    actor_rollout_ref.rollout.overlap=True \</span><br></pre></td></tr></table></figure>
+<ul>
+<li>首先:&#x2F;workspace&#x2F;task1&#x2F;verl&#x2F;verl&#x2F;workers&#x2F;config&#x2F;rollout.py中,加入相关参数:</li>
+</ul>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">@dataclass</span><br><span class="line">class RolloutConfig(BaseConfig):</span><br><span class="line">    _mutable_fields = &#123;&quot;max_model_len&quot;&#125;</span><br><span class="line"></span><br><span class="line">    name: Optional[str] = MISSING</span><br><span class="line">    multi_thread: bool = False</span><br><span class="line">    overlap: bool = False</span><br><span class="line">    mode: str = &quot;sync&quot;</span><br><span class="line"></span><br><span class="line">    temperature: float = 1.0</span><br><span class="line">    top_k: int = -1</span><br><span class="line">    top_p: float = 1.0</span><br><span class="line">    do_sample: bool = True</span><br><span class="line">    n: int = 1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<ul>
+<li>然后: 在&#x2F;workspace&#x2F;task1&#x2F;verl&#x2F;recipe&#x2F;minibatch_pipline&#x2F;config&#x2F;rollout&#x2F;rollout.yaml添加:</li>
+</ul>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">_target_:</span> <span class="string">verl.workers.config.RolloutConfig</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># actor_rollout_ref.rollout.name: hf/vllm/sglang. The default value will be removed in the future</span></span><br><span class="line"><span class="attr">name:</span> <span class="string">???</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># whether use multi_thread to parallel ops</span></span><br><span class="line"><span class="attr">multi_thread:</span> <span class="literal">False</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># whether use overlap for all-to-all overlap</span></span><br><span class="line"><span class="attr">overlap:</span> <span class="literal">False</span></span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>print在ray中终端看不到,看日志文件tail -f &#x2F;tmp&#x2F;ray&#x2F;session_latest&#x2F;logs&#x2F;worker*.out</li>
+</ol>
+<h1 id="Bug"><a href="#Bug" class="headerlink" title="Bug"></a>Bug</h1><p>在minibatch_pipline中,如果在生成过程中即通过其他线程清理KV缓存(多次),让引擎sleep,会引发错误.相关代码为:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># if (self.gen_count == self.gen_prompt_length) and self._is_actor:</span></span><br><span class="line"><span class="comment">#     with marked_timer(&quot;rollout release&quot;):</span></span><br><span class="line"><span class="comment">#         with record_function(&quot;rollout release&quot;):</span></span><br><span class="line"><span class="comment">#             loop = asyncio.get_event_loop()</span></span><br><span class="line"><span class="comment">#             loop.run_until_complete(self.trainer_mode())</span></span><br><span class="line"><span class="comment">#             log_gpu_memory_usage(&quot;generate over&quot;, logger=logger)  </span></span><br></pre></td></tr></table></figure>
+<p>引发的错误为:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ValueError: Pointer argument (at 1) cannot be accessed from Triton (cpu tensor?)</span><br></pre></td></tr></table></figure>
+<p>引擎的参数offload到cpu上了,自然无法正确推理.</p>
+
+</article>
+    
+    
+
+</div>
+<div class="trm-post-next-prev row">
+    <div class="col-lg-12">
+        <!-- title -->
+        <h5 class="trm-title-with-divider">
+            其他文章
+            <span data-number="02"></span>
+        </h5>
+    </div>
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/09/01/paper-review820/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/%E6%96%87%E7%8C%AE%E6%80%BB%E7%BB%93/">
+                    文献总结
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/09/01/paper-review820/" class="trm-anima-link">
+                    文献总结（2025-08-20-2025-09-01）
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/09/01</li>
+                <li>11:02</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/08/21/verl-moe-all2all-1/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/RLHF/">
+                    RLHF
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/08/21/verl-moe-all2all-1/" class="trm-anima-link">
+                    verl改进（一）-all-to-all实验分析
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/08/21</li>
+                <li>16:57</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+</div>
+
+    
+
+
+
+                    <div class="trm-divider footer-divider"></div>
+
+                    <!-- footer -->
+                    <footer class="trm-footer-card trm-scroll-animation">
+
+    
+
+    
+
+    
+        <div class="trm-footer-item">
+            <span>
+                由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 v7.3.0
+            </span>
+            <span class="footer-separator" data-separator=" | "></span>
+            <span> 
+                主题 - 
+                <a rel="noopener" href='https://github.com/MaLuns/hexo-theme-async' target='_blank'>Async</a>
+                v2.2.6
+            </span>
+        </div>
+      
+
+     
+
+     
+</footer>
+                    <!-- footer end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <!-- body end -->
+
+            
+
+            
+<div class="trm-fixed-container">
+    
+    
+        <div class="trm-fixed-btn" data-title="阅读模式" onclick="asyncFun.switchReadMode()">
+            <i class="iconfont fas fa-book-reader"></i>
+        </div>
+    
+    
+    <div id="trm-back-top" class="trm-fixed-btn" data-title="回到顶部">
+        <i class="iconfont fas fa-arrow-up"></i>
+    </div>
+</div>
+        </div>
+      </div>
+      <!-- scroll container end -->
+  </div>
+  <!-- app wrapper end -->
+
+  
+  <!-- Plugin -->
+
+
+
+
+    
+    
+<script src="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+    
+
+    
+
+    
+
+    <!-- 数学公式 -->
+    
+
+    <!-- 评论插件 -->
+    
+        
+
+        
+    
+
+		
+
+
+
+
+    <!-- Service Worker -->
+    
+    <!-- baidu push -->
+    
+
+
+<script id="async-script" src="/js/main.js?v=2.2.6"></script>
+
+<!-- CDN -->
+
+
+    
+
+    
+
+    
+
+
+
+</body>
+
+</html>
