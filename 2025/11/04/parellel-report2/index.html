@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="x5-fullscreen" content="true">
+<meta name="full-screen" content="yes">
+<meta name="theme-color" content="#317EFB" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
+<meta name="description" content="🎓 并行程序设计实验报告—— CUDA 并行性能测试与分析 🧾 基本信息   项目 内容    实验课程 COMP 4007: Parallel Processing and Computer Architecture   实验名称 Programming Assignment 1   学生姓名 谭志强   学号 25B951103   学院 计算机科学与技术学院   专业 电子信息   实验">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hexo">
+<meta property="og:url" content="http://example.com/2025/11/04/parellel-report2/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="🎓 并行程序设计实验报告—— CUDA 并行性能测试与分析 🧾 基本信息   项目 内容    实验课程 COMP 4007: Parallel Processing and Computer Architecture   实验名称 Programming Assignment 1   学生姓名 谭志强   学号 25B951103   学院 计算机科学与技术学院   专业 电子信息   实验">
+<meta property="og:locale">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="article:published_time" content="2025-11-04T13:16:48.511Z">
+<meta property="article:modified_time" content="2025-11-06T08:24:15.552Z">
+<meta property="article:author" content="John Doe">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/404.jpg">
+
+
+<title >Hexo</title>
+
+<!-- Favicon -->
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='16x16' ></link>
+
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='32x32' ></link>
+
+
+
+
+<!-- Plugin -->
+
+
+
+
+    
+<link rel="stylesheet" href="/css/plugins/bootstrap.row.css">
+
+    
+<link rel="stylesheet" href="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.css">
+
+    
+    
+
+
+
+
+<!-- Icon -->
+
+    
+<link rel="stylesheet" href="/css/plugins/font-awesome.min.css">
+
+
+
+
+<!-- Variable -->
+<script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-11-06 16:24:15"};</script>
+
+<!-- Theme mode css -->
+<link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
+<script>
+    let defaultMode = ASYNC_CONFIG.theme.default !=='auto' ?  ASYNC_CONFIG.theme.default : (window.matchMedia("(prefers-color-scheme: light)").matches ? 'style-light' : 'style-dark')
+    let catchMode = localStorage.getItem('theme-mode') || defaultMode;
+    let type = catchMode === 'style-dark' ? 'add' : 'remove';
+    document.documentElement.classList[type]('dark')
+</script>
+
+<!-- CDN -->
+
+
+    
+    
+
+
+
+<!-- Site Analytics -->
+
+ 
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+
+  <!-- app wrapper -->
+  <div class="trm-app-frame">
+
+    <!-- page preloader -->
+    <div class="trm-preloader">
+    <div class="trm-holder">
+        <div class="preloader">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+</div>
+    <!-- page preloader end -->
+
+    <!-- change mode preloader -->
+    <div class="trm-mode-swich-animation-frame">
+    <div class="trm-mode-swich-animation">
+        <i class="i-sun"><i class="iconfont far fa-sun"></i></i>
+        <div class="trm-horizon"></div>
+        <i class="i-moon"><i class="iconfont far fa-moon"></i></i>
+    </div>
+</div>
+    <!-- change mode preloader end -->
+
+      <!-- scroll container -->
+      <div id="trm-dynamic-content" class="trm-swup-animation">
+        <div id="trm-scroll-container" class="trm-scroll-container" style="opacity: 0">
+            <!-- top bar -->
+            <header class="trm-top-bar">
+	<div class="container">
+		<div class="trm-left-side">
+			<!-- logo -->
+<a href="/" class="trm-logo-frame trm-anima-link">
+    
+        <img alt="logo" src="/img/favicon.svg">
+    
+    
+        <div class="trm-logo-text">
+            Async<span>zhiqiang</span>
+        </div>
+    
+</a>
+<!-- logo end -->
+		</div>
+		<div class="trm-right-side">
+			<!-- menu -->
+<div class="trm-menu">
+    <nav>
+        <ul>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/" target="">
+                    首页
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/archives/" target="">
+                    时间线
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/tags/" target="">
+                    标签
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/categories" target="">
+                    分类
+                </a>
+                
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+<!-- menu end -->
+			
+    <!-- mode switcher place -->
+    <div class="trm-mode-switcher-place">
+        <div class="trm-mode-switcher">
+            <i class="iconfont far fa-sun"></i>
+            <input class="tgl tgl-light" id="trm-swich" type="checkbox">
+            <label class="trm-swich" for="trm-swich"></label>
+            <i class="iconfont far fa-moon"></i>
+        </div>
+    </div>
+    <!-- mode switcher place end -->
+
+			
+		</div>
+		<div class="trm-menu-btn">
+			<span></span>
+		</div>
+	</div>
+</header>
+            <!-- top bar end -->
+
+            <!-- body -->
+            
+<div class="trm-content-start">
+    <!-- banner -->
+    <div class="trm-banner">
+    
+    <!-- banner cover -->
+    <img style="object-position:top;object-fit:cover;" alt="banner" class="trm-banner-cover" src="/img/banner.png">
+    <!-- banner cover end -->
+    
+
+    <!-- banner content -->
+    <div class="trm-banner-content trm-overlay">
+        <div class="container">
+            <div class="row">
+                
+                <div class="col-lg-4"></div>
+                
+                <div class="col-lg-8">
+
+                    <!-- banner title -->
+                    <div class="trm-banner-text ">
+                        <div class="trm-label trm-mb-20">
+                            NEWS LETTER
+                        </div>
+                        <h1 class="trm-mb-30 trm-hsmb-font">
+                            
+                        </h1>
+
+                        
+                            <ul class="trm-breadcrumbs trm-label">
+                                <li>
+                                    <a href="/" class="trm-anima-link">Home</a>
+                                </li>
+                                <li>
+                                    <span>
+                                        2025
+                                    </span>
+                                </li>
+                            </ul>
+                        
+                    </div>
+                    <!-- banner title end -->
+
+                    <!-- scroll hint -->
+                    <span id="scroll-triger" class="trm-scroll-hint-frame">
+                        <div class="trm-scroll-hint"></div>
+                        <span class="trm-label">Scroll down</span>
+                    </span>
+                    <!-- scroll hint end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- banner content end -->
+</div>
+    <!-- banner end -->
+    <div class="container">
+        <div class="row">
+            
+                <div class="trm-page-sidebar col-lg-4 hidden-sm">
+                    <!-- main card -->
+                    <div class="trm-main-card-frame trm-sidebar">
+    <div class="trm-main-card"> 
+        <!-- card header -->
+<div class="trm-mc-header">
+    <div class="trm-avatar-frame trm-mb-20">
+        <img alt="Avatar" class="trm-avatar" src="/img/avatar.jpg">
+    </div>
+    <h5 class="trm-name trm-mb-15">
+        看雪
+    </h5>
+    
+</div>
+<!-- card header end -->
+        <!-- sidebar social -->
+
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<div class="trm-social">
+    
+        <a href="https://github.com" title="Github" rel="nofollow" target="_blank">
+            <i class="iconfont fab fa-github"></i>
+        </a>
+    
+</div>
+
+<!-- sidebar social end -->
+        <!-- info -->
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<ul class="trm-table trm-mb-20">
+    
+        <li>
+            <div class="trm-label">
+                Residence:
+            </div>
+            <div class="trm-label trm-label-light">
+                Mars
+            </div>
+        </li>
+    
+</ul>
+<!-- info end -->
+
+        
+    </div>
+</div>
+                    <!-- main card end -->
+                </div>
+            
+            <div class="trm-page-content col-lg-8">
+                <div id="trm-content" class="trm-content">
+                    <div class="trm-post-info row hidden-sm">
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-calendar-alt trm-icon"></i><br>
+            11/04
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-clock trm-icon"></i><br>
+            21:16
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div id="post-author" class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-user trm-icon"></i><br>
+            John Doe
+        </div>
+    </div>
+</div>
+<div class="trm-card ">
+    <article id="article-container" class="trm-publication">
+    <h1 id="🎓-并行程序设计实验报告"><a href="#🎓-并行程序设计实验报告" class="headerlink" title="🎓 并行程序设计实验报告"></a>🎓 并行程序设计实验报告</h1><h2 id="——-CUDA-并行性能测试与分析"><a href="#——-CUDA-并行性能测试与分析" class="headerlink" title="—— CUDA 并行性能测试与分析"></a>—— CUDA 并行性能测试与分析</h2><hr>
+<h3 id="🧾-基本信息"><a href="#🧾-基本信息" class="headerlink" title="🧾 基本信息"></a>🧾 基本信息</h3><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>实验课程</td>
+<td>COMP 4007: Parallel Processing and Computer Architecture</td>
+</tr>
+<tr>
+<td>实验名称</td>
+<td>Programming Assignment 1</td>
+</tr>
+<tr>
+<td>学生姓名</td>
+<td>谭志强</td>
+</tr>
+<tr>
+<td>学号</td>
+<td>25B951103</td>
+</tr>
+<tr>
+<td>学院</td>
+<td>计算机科学与技术学院</td>
+</tr>
+<tr>
+<td>专业</td>
+<td>电子信息</td>
+</tr>
+<tr>
+<td>实验日期</td>
+<td>2025 年 11 月 4 日</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="一、实验目的"><a href="#一、实验目的" class="headerlink" title="一、实验目的"></a>一、实验目的</h2><ul>
+<li>掌握 <strong>CUDA 并行编程模型</strong> 的基本用法；</li>
+<li>理解 <strong>线程层次结构（Grid、Block、Thread）</strong>、<strong>共享内存（Shared Memory）</strong> 与 <strong>同步机制（Synchronization）</strong>；</li>
+<li>探索 <strong>内存访问优化（Coalescing &#x2F; Shared Memory Tiling）</strong> 对性能的影响；</li>
+<li>对比 <strong>CPU 串行算法</strong> 与 <strong>GPU 并行算法</strong> 的运行时间、加速比与效率；</li>
+<li>分析 GPU 的 <strong>计算能力、显存带宽、共享内存瓶颈</strong> 等因素对性能的影响。</li>
+</ul>
+<hr>
+<h2 id="二、实验设备与环境"><a href="#二、实验设备与环境" class="headerlink" title="二、实验设备与环境"></a>二、实验设备与环境</h2><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>操作系统</td>
+<td>Ubuntu 22.04 LTS</td>
+</tr>
+<tr>
+<td>编译器</td>
+<td>NVCC (CUDA 12.6) + GCC 11.4.0</td>
+</tr>
+<tr>
+<td>Python 环境</td>
+<td>3.10（用于绘图分析）</td>
+</tr>
+<tr>
+<td>GPU 型号</td>
+<td>NVIDIA A6000</td>
+</tr>
+<tr>
+<td><strong>Compute Capability</strong></td>
+<td><strong>8.6</strong></td>
+</tr>
+<tr>
+<td><strong>Multiprocessor count (SMs)</strong></td>
+<td><strong>84</strong></td>
+</tr>
+<tr>
+<td><strong>Max threads per multiprocessor</strong></td>
+<td><strong>1536</strong></td>
+</tr>
+<tr>
+<td><strong>Warp size</strong></td>
+<td><strong>32</strong></td>
+</tr>
+<tr>
+<td><strong>Max threads per block</strong></td>
+<td><strong>1024</strong></td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="实验方法说明"><a href="#实验方法说明" class="headerlink" title="实验方法说明"></a>实验方法说明</h3><ul>
+<li>所有实验在 <strong>单 GPU</strong> 环境下完成；</li>
+<li>时间统计采用：<strong>预热（warm-up）2轮</strong> + <strong>正式测量10轮</strong>；</li>
+<li>最终结果取 <strong>平均值 ± 标准差</strong>；</li>
+<li><strong>加速比</strong> &#x3D; CPU运行时间 &#x2F; GPU运行时间；</li>
+<li>时间单位为毫秒（ms）。</li>
+</ul>
+<h2 id="三、矩阵–向量乘法实验"><a href="#三、矩阵–向量乘法实验" class="headerlink" title="三、矩阵–向量乘法实验"></a>三、矩阵–向量乘法实验</h2><h3 id="3-1-实验背景"><a href="#3-1-实验背景" class="headerlink" title="3.1 实验背景"></a>3.1 实验背景</h3><p>矩阵–向量乘法（Matrix–Vector Multiplication, MVM）是线性代数与科学计算中最基本的运算之一，<br> 其计算复杂度为 $O(M \times N)$，计算过程中数据依赖性强、访存量大，<br> 属于典型的 <strong>计算密集型</strong> 与 <strong>内存带宽受限型任务</strong>。</p>
+<p>在 CPU 上执行时，运算通常由单线程串行完成；<br> 通过 <strong>CUDA 并行化</strong>，可以将每一行或每个线程块的计算任务分配给不同的 GPU 线程，从而显著提高并行吞吐率。</p>
+<hr>
+<h3 id="3-2-算法设计与实现"><a href="#3-2-算法设计与实现" class="headerlink" title="3.2 算法设计与实现"></a>3.2 算法设计与实现</h3><h4 id="串行算法"><a href="#串行算法" class="headerlink" title="串行算法"></a>串行算法</h4><p>矩阵–向量乘法的计算公式如下：<br>$$<br>y_i &#x3D; \sum_{j&#x3D;0}^{N-1} A_{ij} \cdot x_j, \quad i&#x3D;0,1,\dots,M-1<br>$$<br>对应的 C 语言实现如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">void MatVecCPU(const float *A, const float *x, float *y, int rows, int cols)</span><br><span class="line">&#123;</span><br><span class="line">    for (int i = 0; i &lt; rows; ++i)</span><br><span class="line">    &#123;</span><br><span class="line">        float sum = 0.0f;</span><br><span class="line">        for (int j = 0; j &lt; cols; ++j)</span><br><span class="line">        &#123;</span><br><span class="line">            sum += A[i * cols + j] * x[j];</span><br><span class="line">        &#125;</span><br><span class="line">        y[i] = sum;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>外层循环遍历矩阵的每一行；</li>
+<li>内层循环对每行与向量 <code>x</code> 做点积；</li>
+<li>计算结果存入输出向量 <code>y</code>。</li>
+</ul>
+<h4 id="并行算法（CUDA）"><a href="#并行算法（CUDA）" class="headerlink" title="并行算法（CUDA）"></a>并行算法（CUDA）</h4><p>在 GPU 上，每个线程负责计算矩阵的一行（或若干行），<br> 通过共享内存加载向量 <code>x</code>，实现数据重用与访存优化。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">#define TILE_WIDTH 16</span><br><span class="line">__global__ void MatVecSharedKernel(const float *A, const float *x, float *y, int rows, int cols)</span><br><span class="line">&#123;</span><br><span class="line">    __shared__ float x_tile[TILE_WIDTH];  // 共享内存缓冲向量</span><br><span class="line"></span><br><span class="line">    int row = blockIdx.x * blockDim.x + threadIdx.x;</span><br><span class="line">    float sum = 0.0f;</span><br><span class="line"></span><br><span class="line">    // 每次处理 TILE_WIDTH 个元素</span><br><span class="line">    for (int tileStart = 0; tileStart &lt; cols; tileStart += TILE_WIDTH)</span><br><span class="line">    &#123;</span><br><span class="line">        int idx = tileStart + threadIdx.x;</span><br><span class="line">        if (idx &lt; cols)</span><br><span class="line">            x_tile[threadIdx.x] = x[idx];</span><br><span class="line">        else</span><br><span class="line">            x_tile[threadIdx.x] = 0.0f;</span><br><span class="line"></span><br><span class="line">        __syncthreads(); // 等待共享内存加载完成</span><br><span class="line"></span><br><span class="line">        if (row &lt; rows)</span><br><span class="line">        &#123;</span><br><span class="line">            for (int j = 0; j &lt; TILE_WIDTH &amp;&amp; (tileStart + j) &lt; cols; ++j)</span><br><span class="line">            &#123;</span><br><span class="line">                sum += A[row * cols + tileStart + j] * x_tile[j];</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        __syncthreads();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    if (row &lt; rows)</span><br><span class="line">        y[row] = sum;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>优化要点：</strong></p>
+<ul>
+<li>采用 <strong>共享内存 (Shared Memory)</strong> 缓存向量 <code>x</code>，减少全局内存访问；</li>
+<li>每个线程计算矩阵的一行，以提升并行度；</li>
+<li>使用 <code>__syncthreads()</code> 确保块内线程同步；</li>
+<li><code>tile</code> 技术实现数据分块加载，提高访存效率，本TILE_WIDTH&#x3D;16；</li>
+<li>块大小 (<code>blockDim.x</code>) 通常设为 128~512，根据 GPU 架构调整。</li>
+</ul>
+<hr>
+<h3 id="3-3-实验结果与分析"><a href="#3-3-实验结果与分析" class="headerlink" title="3.3 实验结果与分析"></a>3.3 实验结果与分析</h3><h4 id="（1）规模-vs-加速比"><a href="#（1）规模-vs-加速比" class="headerlink" title="（1）规模 vs 加速比"></a>（1）规模 vs 加速比</h4><p><img src="/2025/11/04/parellel-report2/Users\25490\Downloads\speedup_dual_axis_int.png" alt="speedup_dual_axis_int"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h4 id="（4）实验结果表格"><a href="#（4）实验结果表格" class="headerlink" title="（4）实验结果表格"></a>（4）实验结果表格</h4><table>
+<thead>
+<tr>
+<th>Cols</th>
+<th>Rows</th>
+<th>CPU(ms)</th>
+<th>GPU(ms)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>256</td>
+<td>256</td>
+<td>0.218</td>
+<td>0.014</td>
+<td>15.57×</td>
+</tr>
+<tr>
+<td>512</td>
+<td>512</td>
+<td>0.872</td>
+<td>0.024</td>
+<td>36.33×</td>
+</tr>
+<tr>
+<td>1024</td>
+<td>1024</td>
+<td>3.478</td>
+<td>0.043</td>
+<td>80.88×</td>
+</tr>
+<tr>
+<td>2048</td>
+<td>2048</td>
+<td>13.828</td>
+<td>0.124</td>
+<td>111.50×</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="3-4-结果分析"><a href="#3-4-结果分析" class="headerlink" title="3.4 结果分析"></a>3.4 结果分析</h3><ul>
+<li><p><strong>GPU 加速效果显著</strong>：随着矩阵规模增大，GPU 加速比从约 15× 提升至 100× 以上，表现出良好的可扩展性。</p>
+</li>
+<li><p><strong>小规模任务开销占主导</strong>：在 256×256 规模下，GPU 启动开销和内存传输延迟比例较高，导致加速比偏低。</p>
+</li>
+<li><p><strong>共享内存优化有效</strong>：采用 Tile 技术后，内核计算与内存访问重叠显著减少访存延迟。</p>
+</li>
+</ul>
+<hr>
+<h2 id="四、矩阵转置实验"><a href="#四、矩阵转置实验" class="headerlink" title="四、矩阵转置实验"></a>四、矩阵转置实验</h2><h3 id="4-1-实验背景"><a href="#4-1-实验背景" class="headerlink" title="4.1 实验背景"></a>4.1 实验背景</h3><p>矩阵转置（Matrix Transpose）是高性能计算与矩阵运算中常见的基础操作，其任务是将矩阵 $A$ 中的元素 $A_{ij}$ 映射到转置矩阵 $A^T_{ji}$，计算复杂度为 $O(M \times N)$。<br> 该操作虽然计算量较小，但在大规模矩阵中，<strong>访存访问模式不连续</strong>，导致<strong>缓存命中率低</strong>与<strong>全局内存带宽利用率不足</strong>，成为性能瓶颈。</p>
+<p>在 GPU 上实现矩阵转置的优化关键在于<strong>访存模式与共享内存的使用</strong>。<br> 通过在 CUDA 内核中利用共享内存（Shared Memory）作为数据缓冲区，可以实现<strong>全局内存读写访问合并（Memory Coalescing）</strong>，显著提升吞吐率。</p>
+<hr>
+<h3 id="4-2-算法设计与实现"><a href="#4-2-算法设计与实现" class="headerlink" title="4.2 算法设计与实现"></a>4.2 算法设计与实现</h3><h4 id="（1）串行算法"><a href="#（1）串行算法" class="headerlink" title="（1）串行算法"></a>（1）串行算法</h4><p>矩阵转置的基本形式如下：<br>$$<br>A^T[j][i] &#x3D; A[i][j], \quad 0 \le i &lt; M, 0 \le j &lt; N<br>$$<br>对应 C 语言实现如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">void MatrixTransposeCPU(const float *A, float *AT, int rows, int cols)</span><br><span class="line">&#123;</span><br><span class="line">    for (int i = 0; i &lt; rows; ++i)</span><br><span class="line">    &#123;</span><br><span class="line">        for (int j = 0; j &lt; cols; ++j)</span><br><span class="line">        &#123;</span><br><span class="line">            AT[j * rows + i] = A[i * cols + j];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>外层循环遍历行，内层循环遍历列；</li>
+<li>写入操作跨行存储，不具备空间局部性；</li>
+<li>对于大规模矩阵，缓存效率较低。</li>
+</ul>
+<hr>
+<h4 id="（2）CUDA-并行算法（Naive-版本）"><a href="#（2）CUDA-并行算法（Naive-版本）" class="headerlink" title="（2）CUDA 并行算法（Naive 版本）"></a>（2）CUDA 并行算法（Naive 版本）</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">#define TILE_WIDTH 32</span><br><span class="line">__global__ void MatrixTransposeNaive(const float *A, float *AT, int rows, int cols)</span><br><span class="line">&#123;</span><br><span class="line">    int row = blockIdx.y * blockDim.y + threadIdx.y;</span><br><span class="line">    int col = blockIdx.x * blockDim.x + threadIdx.x;</span><br><span class="line">    if (row &lt; rows &amp;&amp; col &lt; cols)</span><br><span class="line">    &#123;</span><br><span class="line">        AT[col * rows + row] = A[row * cols + col];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>每个线程负责拷贝矩阵中一个元素；</li>
+<li>虽然简单直观，但写入 <code>AT</code> 时的访存模式不连续；</li>
+<li>全局内存访问未对齐，效率低下。</li>
+</ul>
+<hr>
+<h4 id="（3）CUDA-并行算法（Shared-Memory-优化版）"><a href="#（3）CUDA-并行算法（Shared-Memory-优化版）" class="headerlink" title="（3）CUDA 并行算法（Shared Memory 优化版）"></a>（3）CUDA 并行算法（Shared Memory 优化版）</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">#define TILE_WIDTH 32</span><br><span class="line">__global__ void MatrixTransposeShared(const float *A, float *AT, int rows, int cols)</span><br><span class="line">&#123;</span><br><span class="line">    __shared__ float tile[TILE_WIDTH][TILE_WIDTH + 1]; // +1避免bank conflict</span><br><span class="line"></span><br><span class="line">    int x = blockIdx.x * TILE_WIDTH + threadIdx.x;</span><br><span class="line">    int y = blockIdx.y * TILE_WIDTH + threadIdx.y;</span><br><span class="line"></span><br><span class="line">    if (x &lt; cols &amp;&amp; y &lt; rows)</span><br><span class="line">    &#123;</span><br><span class="line">        tile[threadIdx.y][threadIdx.x] = A[y * cols + x];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    __syncthreads();</span><br><span class="line"></span><br><span class="line">    int transposedX = blockIdx.y * TILE_WIDTH + threadIdx.x;</span><br><span class="line">    int transposedY = blockIdx.x * TILE_WIDTH + threadIdx.y;</span><br><span class="line"></span><br><span class="line">    if (transposedX &lt; rows &amp;&amp; transposedY &lt; cols)</span><br><span class="line">    &#123;</span><br><span class="line">        AT[transposedY * rows + transposedX] = tile[threadIdx.x][threadIdx.y];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>优化要点：</strong></p>
+<ul>
+<li>使用共享内存 tile 缓存一个 <code>TILE_WIDTH×TILE_WIDTH</code> 的子矩阵；</li>
+<li>实现线程块内部的访存重排，使全局读写均为连续访问；</li>
+<li>通过 <code>+1</code> 填充避免 bank conflict；</li>
+<li>写回阶段同样保持访存合并，显著提升带宽利用率。</li>
+</ul>
+<hr>
+<h3 id="4-3-实验结果与分析"><a href="#4-3-实验结果与分析" class="headerlink" title="4.3 实验结果与分析"></a>4.3 实验结果与分析</h3><h4 id="（1）规模–加速比趋势"><a href="#（1）规模–加速比趋势" class="headerlink" title="（1）规模–加速比趋势"></a>（1）规模–加速比趋势</h4><blockquote>
+<p><img src="/2025/11/04/parellel-report2/Users\25490\Downloads\transpose_speedup_dual_axis.png" alt="transpose_speedup_dual_axis"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+</blockquote>
+<p>图中显示了 CPU、GPU Naive、GPU Shared 三种实现的运行时间随矩阵规模的变化情况。<br> 右轴为 GPU Shared 相对 CPU 的加速比。</p>
+<hr>
+<h4 id="（2）实验结果表格"><a href="#（2）实验结果表格" class="headerlink" title="（2）实验结果表格"></a>（2）实验结果表格</h4><table>
+<thead>
+<tr>
+<th>Cols</th>
+<th>Rows</th>
+<th>CPU(ms)</th>
+<th>GPU_naive(ms)</th>
+<th>GPU_shared(ms)</th>
+<th>Speedup_naive</th>
+<th>Speedup_shared</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1024</td>
+<td>1024</td>
+<td>4.491</td>
+<td>0.039</td>
+<td>0.018</td>
+<td>115.13×</td>
+<td>249.50×</td>
+</tr>
+<tr>
+<td>4096</td>
+<td>4096</td>
+<td>128.989</td>
+<td>0.534</td>
+<td>0.229</td>
+<td>241.58×</td>
+<td>563.49×</td>
+</tr>
+<tr>
+<td>8192</td>
+<td>8192</td>
+<td>629.491</td>
+<td>2.113</td>
+<td>0.920</td>
+<td>297.80×</td>
+<td>683.14×</td>
+</tr>
+<tr>
+<td>16384</td>
+<td>16384</td>
+<td>3029.207</td>
+<td>8.437</td>
+<td>3.712</td>
+<td>359.17×</td>
+<td>816.36×</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="4-4-结果分析"><a href="#4-4-结果分析" class="headerlink" title="4.4 结果分析"></a>4.4 结果分析</h3><ul>
+<li><strong>显著的 GPU 加速效果</strong>：随着矩阵规模扩大，GPU 加速比呈持续上升趋势，Shared 版本最高达到 <strong>800× 以上</strong>。</li>
+<li><strong>访存优化贡献突出</strong>：Shared Memory 优化版在所有规模上均优于 Naive 实现，表明访存合并与 Bank Conflict 避免带来的性能收益显著。</li>
+<li><strong>可扩展性良好</strong>：Naive 与 Shared 实现均随规模线性增长，而 GPU 时间增长速率明显低于 CPU，体现出 GPU 在大规模并行访存任务中的高吞吐特性。</li>
+</ul>
+<hr>
+<h3 id="4-5-小结"><a href="#4-5-小结" class="headerlink" title="4.5 小结"></a>4.5 小结</h3><p>本实验验证了：</p>
+<ol>
+<li><strong>CUDA 并行化对访存密集任务的显著提速作用</strong>；</li>
+<li><strong>共享内存优化在矩阵转置类任务中能有效减少非对齐访存与 Bank Conflict</strong>；</li>
+<li>随矩阵规模增加，<strong>加速比呈近线性提升趋势</strong>，体现出良好的可扩展性与带宽利用效率。</li>
+</ol>
+<h2 id="五、二维卷积运算实验"><a href="#五、二维卷积运算实验" class="headerlink" title="五、二维卷积运算实验"></a>五、二维卷积运算实验</h2><h3 id="5-1-实验背景"><a href="#5-1-实验背景" class="headerlink" title="5.1 实验背景"></a>5.1 实验背景</h3><p>图像卷积（2D Convolution）是计算机视觉、图像处理以及深度学习中的核心操作，用于边缘检测、模糊、锐化及特征提取等任务。<br> 其基本形式为：<br>$$<br>O(i,j) &#x3D; \sum_{m&#x3D;-r}^{r}\sum_{n&#x3D;-r}^{r} I(i+m, j+n) \cdot K(m+r, n+r)<br>$$<br>其中：</p>
+<ul>
+<li>$I$ 为输入图像；</li>
+<li>$K$ 为卷积核；</li>
+<li>$r &#x3D; \frac{K-1}{2}$ 为卷积核半径；</li>
+<li>$O(i,j)$ 为输出像素。</li>
+</ul>
+<p>卷积计算的数据访问呈现<strong>局部重叠</strong>特性，存在大量数据复用，因此在 GPU 上可利用 <strong>共享内存 (Shared Memory)</strong> 提高访存效率。</p>
+<hr>
+<h3 id="5-2-算法设计与实现"><a href="#5-2-算法设计与实现" class="headerlink" title="5.2 算法设计与实现"></a>5.2 算法设计与实现</h3><h4 id="串行算法（CPU-版本）"><a href="#串行算法（CPU-版本）" class="headerlink" title="串行算法（CPU 版本）"></a>串行算法（CPU 版本）</h4><p>CPU 版本使用三重循环实现二维卷积，按行列扫描输入图像，逐点计算卷积和：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">void Conv2DCPU(const int *image, const int *kernel, int *output, int rows, int cols, int K)</span><br><span class="line">&#123;</span><br><span class="line">    int halfK = K / 2;</span><br><span class="line">    for (int i = 0; i &lt; rows; ++i)</span><br><span class="line">    &#123;</span><br><span class="line">        for (int j = 0; j &lt; cols; ++j)</span><br><span class="line">        &#123;</span><br><span class="line">            int sum = 0;</span><br><span class="line">            for (int ki = -halfK; ki &lt;= halfK; ++ki)</span><br><span class="line">            &#123;</span><br><span class="line">                for (int kj = -halfK; kj &lt;= halfK; ++kj)</span><br><span class="line">                &#123;</span><br><span class="line">                    int r = i + ki;</span><br><span class="line">                    int c = j + kj;</span><br><span class="line">                    if (r &gt;= 0 &amp;&amp; r &lt; rows &amp;&amp; c &gt;= 0 &amp;&amp; c &lt; cols)</span><br><span class="line">                        sum += image[r * cols + c] * kernel[(ki + halfK) * K + (kj + halfK)];</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            output[i * cols + j] = sum;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>外层两重循环扫描整个图像；</li>
+<li>内层两重循环遍历卷积核；</li>
+<li>边界部分采用零填充（zero padding）。</li>
+</ul>
+<hr>
+<h4 id="并行算法（CUDA-共享内存优化）"><a href="#并行算法（CUDA-共享内存优化）" class="headerlink" title="并行算法（CUDA 共享内存优化）"></a>并行算法（CUDA 共享内存优化）</h4><p>GPU 版本采用 Tile + Shared Memory 优化，每个线程块处理一个 tile，块内线程协同加载输入子块与其 halo 区（卷积核边界扩展区）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">#define TILE_WIDTH 16  // 每个 block 输出 tile 大小，可根据 GPU 调整</span><br><span class="line"></span><br><span class="line">__global__ void Conv2DShared(const int *image, const int *kernel, int *output,</span><br><span class="line">                             int rows, int cols, int K)</span><br><span class="line">&#123;</span><br><span class="line">    extern __shared__ int tile[];  // 动态共享内存，大小 = (TILE_WIDTH + 2*radius)^2</span><br><span class="line">    int radius = K / 2;</span><br><span class="line"></span><br><span class="line">    // 线程索引</span><br><span class="line">    int tx = threadIdx.x;</span><br><span class="line">    int ty = threadIdx.y;</span><br><span class="line">    int tid = ty * blockDim.x + tx;               // 线性线程 id</span><br><span class="line">    int threads_per_block = blockDim.x * blockDim.y;</span><br><span class="line"></span><br><span class="line">    // 该 block 负责的输出 tile 左上角在全局图像中的坐标</span><br><span class="line">    int out_row0 = blockIdx.y * TILE_WIDTH;</span><br><span class="line">    int out_col0 = blockIdx.x * TILE_WIDTH;</span><br><span class="line"></span><br><span class="line">    // 共享内存 tile 的尺寸（包含 halo）</span><br><span class="line">    int sh_w = TILE_WIDTH + 2 * radius;</span><br><span class="line">    int sh_h = TILE_WIDTH + 2 * radius;</span><br><span class="line">    int total = sh_w * sh_h;                      // 共享内存中需要填充的元素总数</span><br><span class="line"></span><br><span class="line">    // =============== 阶段1：协同把 (tile+halo) 从全局读入共享内存 ===============</span><br><span class="line">    // 循环+步长装载：保证 total 可能大于线程数时也能完全覆盖</span><br><span class="line">    for (int idx = tid; idx &lt; total; idx += threads_per_block)</span><br><span class="line">    &#123;</span><br><span class="line">        int sr = idx / sh_w;                      // shared 内的行</span><br><span class="line">        int sc = idx % sh_w;                      // shared 内的列</span><br><span class="line"></span><br><span class="line">        // 映射到全局输入图像坐标（注意 halo 偏移）</span><br><span class="line">        int gr = out_row0 + sr - radius;</span><br><span class="line">        int gc = out_col0 + sc - radius;</span><br><span class="line"></span><br><span class="line">        // 边界处理：越界补 0</span><br><span class="line">        if (gr &gt;= 0 &amp;&amp; gr &lt; rows &amp;&amp; gc &gt;= 0 &amp;&amp; gc &lt; cols)</span><br><span class="line">            tile[idx] = image[gr * cols + gc];</span><br><span class="line">        else</span><br><span class="line">            tile[idx] = 0;</span><br><span class="line">    &#125;</span><br><span class="line">    __syncthreads();</span><br><span class="line"></span><br><span class="line">    // =============== 阶段2：在共享内存上完成 KxK 卷积并写回 ===============</span><br><span class="line">    // 每个线程计算一个输出像素（中心 TILE_WIDTH×TILE_WIDTH 区域）</span><br><span class="line">    int out_r = out_row0 + ty;                    // 该线程对应输出像素的全局行</span><br><span class="line">    int out_c = out_col0 + tx;                    // 该线程对应输出像素的全局列</span><br><span class="line"></span><br><span class="line">    if (out_r &lt; rows &amp;&amp; out_c &lt; cols)</span><br><span class="line">    &#123;</span><br><span class="line">        // 共享内存中该输出像素的“中心”位置（加上 halo 偏移）</span><br><span class="line">        int sr_center = ty + radius;</span><br><span class="line">        int sc_center = tx + radius;</span><br><span class="line"></span><br><span class="line">        int sum = 0;</span><br><span class="line">        // 在共享内存中做 KxK 点积</span><br><span class="line">        for (int i = 0; i &lt; K; ++i)</span><br><span class="line">        &#123;</span><br><span class="line">            int sr = sr_center + (i - radius);</span><br><span class="line">            int sh_row_off = sr * sh_w;</span><br><span class="line">            for (int j = 0; j &lt; K; ++j)</span><br><span class="line">            &#123;</span><br><span class="line">                int sc = sc_center + (j - radius);</span><br><span class="line">                sum += tile[sh_row_off + sc] * kernel[i * K + j];</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        output[out_r * cols + out_c] = sum;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>优化关键点：</strong></p>
+<ul>
+<li>每个线程块加载 tile + halo 区数据；</li>
+<li>所有线程协作完成共享内存加载；</li>
+<li>同步后局部计算完全在共享内存中进行；</li>
+<li>极大减少全局内存访问次数。</li>
+</ul>
+<hr>
+<h3 id="5-3-实验结果与性能分析"><a href="#5-3-实验结果与性能分析" class="headerlink" title="5.3 实验结果与性能分析"></a>5.3 实验结果与性能分析</h3><h4 id="（1）时间–加速比双轴图"><a href="#（1）时间–加速比双轴图" class="headerlink" title="（1）时间–加速比双轴图"></a>（1）时间–加速比双轴图</h4><p><img src="/2025/11/04/parellel-report2/Users\25490\Downloads\conv2d_speedup_grouped.png" alt="conv2d_speedup_grouped.png"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<hr>
+<h4 id="（2）实验结果表格-1"><a href="#（2）实验结果表格-1" class="headerlink" title="（2）实验结果表格"></a>（2）实验结果表格</h4><table>
+<thead>
+<tr>
+<th>Cols</th>
+<th>Rows</th>
+<th>K</th>
+<th>CPU(ms)</th>
+<th>GPU(ms)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>256</td>
+<td>256</td>
+<td>3</td>
+<td>3.027</td>
+<td>0.006</td>
+<td>504.5×</td>
+</tr>
+<tr>
+<td>512</td>
+<td>512</td>
+<td>3</td>
+<td>12.093</td>
+<td>0.009</td>
+<td>1343.7×</td>
+</tr>
+<tr>
+<td>1024</td>
+<td>1024</td>
+<td>3</td>
+<td>48.991</td>
+<td>0.024</td>
+<td>2041.3×</td>
+</tr>
+<tr>
+<td>2048</td>
+<td>2048</td>
+<td>3</td>
+<td>193.340</td>
+<td>0.073</td>
+<td>2648.5×</td>
+</tr>
+<tr>
+<td>256</td>
+<td>256</td>
+<td>5</td>
+<td>7.788</td>
+<td>0.008</td>
+<td>973.5×</td>
+</tr>
+<tr>
+<td>512</td>
+<td>512</td>
+<td>5</td>
+<td>31.150</td>
+<td>0.013</td>
+<td>2396.1×</td>
+</tr>
+<tr>
+<td>1024</td>
+<td>1024</td>
+<td>5</td>
+<td>125.550</td>
+<td>0.035</td>
+<td>3587.1×</td>
+</tr>
+<tr>
+<td>2048</td>
+<td>2048</td>
+<td>5</td>
+<td>504.837</td>
+<td>0.119</td>
+<td>4243.3×</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="5-4-结果分析"><a href="#5-4-结果分析" class="headerlink" title="5.4 结果分析"></a>5.4 结果分析</h3><ul>
+<li><strong>共享内存重用高效</strong>：卷积区域存在大量数据重叠，使用共享内存避免了重复从全局内存加载同一像素，GPU加速效果明显；</li>
+<li><strong>卷积核大小影响弱</strong>：随着 $K$ 从 3 到 5 增大，GPU 时间增长较慢，而 CPU 时间成平方增长；</li>
+</ul>
+<hr>
+<p>✅ <strong>总结</strong></p>
+<p>通过本实验验证了共享内存优化对二维卷积运算的显著加速作用。<br> 相较于 CPU 的顺序卷积，GPU 在 2048×2048 图像、5×5 卷积核下可实现超过 <strong>4000 倍</strong> 的性能提升。</p>
+<h2 id="六、实验总结"><a href="#六、实验总结" class="headerlink" title="六、实验总结"></a>六、实验总结</h2><ul>
+<li><p><strong>数据规模决定加速收益</strong><br> 在小规模计算中（如 256×256），GPU 启动与数据传输的固定开销占比高，整体加速比有限；<br> 随着问题规模增大，计算密集度上升，GPU 并行计算能力被充分利用，速度提升显著，可达百倍至千倍以上。</p>
+</li>
+<li><p><strong>共享内存优化效果显著</strong><br> 对矩阵–向量乘法、矩阵转置和二维卷积等内存密集型任务，共享内存（Shared Memory）能有效减少全局访存次数。<br> 实验中，卷积操作的加速比最高达 <strong>4000×</strong>，说明在数据局部性强的场景下，tile + halo 缓存策略极为高效。</p>
+</li>
+<li><p><strong>性能瓶颈分析</strong></p>
+<ol>
+<li>对小矩阵而言，<strong>kernel 启动时间</strong> 和 <strong>主机–设备间数据拷贝</strong> 成为主要瓶颈；</li>
+<li>对大矩阵和卷积而言，<strong>全局内存带宽</strong> 和 <strong>访存模式不连续性</strong> 是主要限制；</li>
+<li>合理的 <strong>线程块尺寸 (TILE_WIDTH)</strong> 与 <strong>访存对齐</strong> 能显著缓解性能损失。</li>
+</ol>
+</li>
+<li><p><strong>通用优化策略</strong></p>
+<ol>
+<li>采用 <strong>分块 (Tiling)</strong> 与 <strong>共享内存缓存</strong> 提高局部数据重用率；</li>
+<li>尽量保证 <strong>Coalesced Memory Access</strong>（连续访存），减少非对齐读写；</li>
+<li>合理选择 Block&#x2F;Grid 尺寸，避免过多空线程；</li>
+<li>使用 <strong>异步流 (cudaStream)</strong> 与 <strong>事件计时 (cudaEvent)</strong> 精确测量与重叠计算。</li>
+</ol>
+</li>
+<li><p><strong>总体结论</strong></p>
+<blockquote>
+<p>本次实验表明，CUDA 在大规模矩阵计算中相较于 CPU 具有数量级的性能优势。<br> 利用共享内存、数据分块与访存优化策略，可有效挖掘 GPU 的并行潜力。<br> 同时也要注意，对于小规模问题，GPU 调度与传输开销可能抵消并行带来的收益。</p>
+</blockquote>
+</li>
+</ul>
+
+</article>
+    
+    
+
+</div>
+<div class="trm-post-next-prev row">
+    <div class="col-lg-12">
+        <!-- title -->
+        <h5 class="trm-title-with-divider">
+            其他文章
+            <span data-number="02"></span>
+        </h5>
+    </div>
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/11/10/parellel-report3/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="/img/block.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" #.">
+                    未分类
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/11/10/parellel-report3/" class="trm-anima-link">
+                    
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/11/10</li>
+                <li>19:14</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/10/29/multi-process-ov2/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/RLHF/">
+                    RLHF
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/10/29/multi-process-ov2/" class="trm-anima-link">
+                    multi-process-ov2
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/10/29</li>
+                <li>21:06</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+</div>
+
+    
+
+
+
+                    <div class="trm-divider footer-divider"></div>
+
+                    <!-- footer -->
+                    <footer class="trm-footer-card trm-scroll-animation">
+
+    
+
+    
+
+    
+        <div class="trm-footer-item">
+            <span>
+                由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 v7.3.0
+            </span>
+            <span class="footer-separator" data-separator=" | "></span>
+            <span> 
+                主题 - 
+                <a rel="noopener" href='https://github.com/MaLuns/hexo-theme-async' target='_blank'>Async</a>
+                v2.2.6
+            </span>
+        </div>
+      
+
+     
+
+     
+</footer>
+                    <!-- footer end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <!-- body end -->
+
+            
+
+            
+<div class="trm-fixed-container">
+    
+    
+        <div class="trm-fixed-btn" data-title="阅读模式" onclick="asyncFun.switchReadMode()">
+            <i class="iconfont fas fa-book-reader"></i>
+        </div>
+    
+    
+    <div id="trm-back-top" class="trm-fixed-btn" data-title="回到顶部">
+        <i class="iconfont fas fa-arrow-up"></i>
+    </div>
+</div>
+        </div>
+      </div>
+      <!-- scroll container end -->
+  </div>
+  <!-- app wrapper end -->
+
+  
+  <!-- Plugin -->
+
+
+
+
+    
+    
+<script src="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+    
+
+    
+
+    
+
+    <!-- 数学公式 -->
+    
+
+    <!-- 评论插件 -->
+    
+        
+
+        
+    
+
+		
+
+
+
+
+    <!-- Service Worker -->
+    
+    <!-- baidu push -->
+    
+
+
+<script id="async-script" src="/js/main.js?v=2.2.6"></script>
+
+<!-- CDN -->
+
+
+    
+
+    
+
+    
+
+
+
+</body>
+
+</html>

@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="x5-fullscreen" content="true">
+<meta name="full-screen" content="yes">
+<meta name="theme-color" content="#317EFB" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
+<meta name="description" content="目的 希望把切分的overhead解决 更智能的overlap调度方案  性能分析baseline：参数设置见附录     阶段 耗时 (s) 占比 (%)    gen 9.166 52.28 %   reward 0.0742 0.42 %   old_log_prob 2.232 12.73 %   ref 1.793 10.23 %   adv 0.0213 0.12 %   update">
+<meta property="og:type" content="article">
+<meta property="og:title" content="solve_extra_overhead">
+<meta property="og:url" content="http://example.com/2025/10/20/solve-extra-overhead/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="目的 希望把切分的overhead解决 更智能的overlap调度方案  性能分析baseline：参数设置见附录     阶段 耗时 (s) 占比 (%)    gen 9.166 52.28 %   reward 0.0742 0.42 %   old_log_prob 2.232 12.73 %   ref 1.793 10.23 %   adv 0.0213 0.12 %   update">
+<meta property="og:locale">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="article:published_time" content="2025-10-20T05:55:42.000Z">
+<meta property="article:modified_time" content="2025-11-21T08:59:27.873Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="Verl框架">
+<meta property="article:tag" content="性能分析">
+<meta property="article:tag" content="多进程">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/404.jpg">
+
+    <meta name="keywords" content="RLHF,Verl框架,性能分析">
+
+
+<title >solve_extra_overhead</title>
+
+<!-- Favicon -->
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='16x16' ></link>
+
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='32x32' ></link>
+
+
+
+
+<!-- Plugin -->
+
+
+
+
+    
+<link rel="stylesheet" href="/css/plugins/bootstrap.row.css">
+
+    
+<link rel="stylesheet" href="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.css">
+
+    
+    
+
+
+
+
+<!-- Icon -->
+
+    
+<link rel="stylesheet" href="/css/plugins/font-awesome.min.css">
+
+
+
+
+<!-- Variable -->
+<script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-11-21 16:59:27"};</script>
+
+<!-- Theme mode css -->
+<link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
+<script>
+    let defaultMode = ASYNC_CONFIG.theme.default !=='auto' ?  ASYNC_CONFIG.theme.default : (window.matchMedia("(prefers-color-scheme: light)").matches ? 'style-light' : 'style-dark')
+    let catchMode = localStorage.getItem('theme-mode') || defaultMode;
+    let type = catchMode === 'style-dark' ? 'add' : 'remove';
+    document.documentElement.classList[type]('dark')
+</script>
+
+<!-- CDN -->
+
+
+    
+    
+
+
+
+<!-- Site Analytics -->
+
+ 
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+
+  <!-- app wrapper -->
+  <div class="trm-app-frame">
+
+    <!-- page preloader -->
+    <div class="trm-preloader">
+    <div class="trm-holder">
+        <div class="preloader">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+</div>
+    <!-- page preloader end -->
+
+    <!-- change mode preloader -->
+    <div class="trm-mode-swich-animation-frame">
+    <div class="trm-mode-swich-animation">
+        <i class="i-sun"><i class="iconfont far fa-sun"></i></i>
+        <div class="trm-horizon"></div>
+        <i class="i-moon"><i class="iconfont far fa-moon"></i></i>
+    </div>
+</div>
+    <!-- change mode preloader end -->
+
+      <!-- scroll container -->
+      <div id="trm-dynamic-content" class="trm-swup-animation">
+        <div id="trm-scroll-container" class="trm-scroll-container" style="opacity: 0">
+            <!-- top bar -->
+            <header class="trm-top-bar">
+	<div class="container">
+		<div class="trm-left-side">
+			<!-- logo -->
+<a href="/" class="trm-logo-frame trm-anima-link">
+    
+        <img alt="logo" src="/img/favicon.svg">
+    
+    
+        <div class="trm-logo-text">
+            Async<span>zhiqiang</span>
+        </div>
+    
+</a>
+<!-- logo end -->
+		</div>
+		<div class="trm-right-side">
+			<!-- menu -->
+<div class="trm-menu">
+    <nav>
+        <ul>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/" target="">
+                    首页
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/archives/" target="">
+                    时间线
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/tags/" target="">
+                    标签
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/categories" target="">
+                    分类
+                </a>
+                
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+<!-- menu end -->
+			
+    <!-- mode switcher place -->
+    <div class="trm-mode-switcher-place">
+        <div class="trm-mode-switcher">
+            <i class="iconfont far fa-sun"></i>
+            <input class="tgl tgl-light" id="trm-swich" type="checkbox">
+            <label class="trm-swich" for="trm-swich"></label>
+            <i class="iconfont far fa-moon"></i>
+        </div>
+    </div>
+    <!-- mode switcher place end -->
+
+			
+		</div>
+		<div class="trm-menu-btn">
+			<span></span>
+		</div>
+	</div>
+</header>
+            <!-- top bar end -->
+
+            <!-- body -->
+            
+<div class="trm-content-start">
+    <!-- banner -->
+    <div class="trm-banner">
+    
+    <!-- banner cover -->
+    <img style="object-position:top;object-fit:cover;" alt="banner" class="trm-banner-cover" src="https://pic1.zhimg.com/v2-b3c2c6745b9421a13a3c4706b19223b3_r.jpg">
+    <!-- banner cover end -->
+    
+
+    <!-- banner content -->
+    <div class="trm-banner-content trm-overlay">
+        <div class="container">
+            <div class="row">
+                
+                <div class="col-lg-4"></div>
+                
+                <div class="col-lg-8">
+
+                    <!-- banner title -->
+                    <div class="trm-banner-text ">
+                        <div class="trm-label trm-mb-20">
+                            Hi my new friend!
+                        </div>
+                        <h1 class="trm-mb-30 trm-hsmb-font">
+                            solve_extra_overhead
+                        </h1>
+
+                        
+                            <ul class="trm-breadcrumbs trm-label">
+                                <li>
+                                    <a href="/" class="trm-anima-link">Home</a>
+                                </li>
+                                <li>
+                                    <span>
+                                        2025
+                                    </span>
+                                </li>
+                            </ul>
+                        
+                    </div>
+                    <!-- banner title end -->
+
+                    <!-- scroll hint -->
+                    <span id="scroll-triger" class="trm-scroll-hint-frame">
+                        <div class="trm-scroll-hint"></div>
+                        <span class="trm-label">Scroll down</span>
+                    </span>
+                    <!-- scroll hint end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- banner content end -->
+</div>
+    <!-- banner end -->
+    <div class="container">
+        <div class="row">
+            
+                <div class="trm-page-sidebar col-lg-4 hidden-sm">
+                    <!-- main card -->
+                    <div class="trm-main-card-frame trm-sidebar">
+    <div class="trm-main-card"> 
+        <!-- card header -->
+<div class="trm-mc-header">
+    <div class="trm-avatar-frame trm-mb-20">
+        <img alt="Avatar" class="trm-avatar" src="/img/avatar.jpg">
+    </div>
+    <h5 class="trm-name trm-mb-15">
+        看雪
+    </h5>
+    
+</div>
+<!-- card header end -->
+        <!-- sidebar social -->
+
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<div class="trm-social">
+    
+        <a href="https://github.com" title="Github" rel="nofollow" target="_blank">
+            <i class="iconfont fab fa-github"></i>
+        </a>
+    
+</div>
+
+<!-- sidebar social end -->
+        <!-- info -->
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<ul class="trm-table trm-mb-20">
+    
+        <li>
+            <div class="trm-label">
+                Residence:
+            </div>
+            <div class="trm-label trm-label-light">
+                Mars
+            </div>
+        </li>
+    
+</ul>
+<!-- info end -->
+
+        
+    </div>
+</div>
+                    <!-- main card end -->
+                </div>
+            
+            <div class="trm-page-content col-lg-8">
+                <div id="trm-content" class="trm-content">
+                    <div class="trm-post-info row hidden-sm">
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-calendar-alt trm-icon"></i><br>
+            10/20
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-clock trm-icon"></i><br>
+            13:55
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div id="post-author" class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-user trm-icon"></i><br>
+            John Doe
+        </div>
+    </div>
+</div>
+<div class="trm-card ">
+    <article id="article-container" class="trm-publication">
+    <h1 id="目的"><a href="#目的" class="headerlink" title="目的"></a>目的</h1><ol>
+<li>希望把切分的overhead解决</li>
+<li>更智能的overlap调度方案</li>
+</ol>
+<h1 id="性能分析"><a href="#性能分析" class="headerlink" title="性能分析"></a>性能分析</h1><h2 id="baseline："><a href="#baseline：" class="headerlink" title="baseline："></a>baseline：</h2><p>参数设置见附录</p>
+<p><img src="/2025/10/20/solve-extra-overhead/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20251020195309966.png" alt="image-20251020195309966"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>耗时 (s)</th>
+<th>占比 (%)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>gen</td>
+<td><strong>9.166</strong></td>
+<td><strong>52.28 %</strong></td>
+</tr>
+<tr>
+<td>reward</td>
+<td>0.0742</td>
+<td>0.42 %</td>
+</tr>
+<tr>
+<td>old_log_prob</td>
+<td>2.232</td>
+<td>12.73 %</td>
+</tr>
+<tr>
+<td>ref</td>
+<td>1.793</td>
+<td>10.23 %</td>
+</tr>
+<tr>
+<td>adv</td>
+<td>0.0213</td>
+<td>0.12 %</td>
+</tr>
+<tr>
+<td>update_actor</td>
+<td>4.248</td>
+<td>24.23 %</td>
+</tr>
+</tbody></table>
+<p>总耗时17.54s</p>
+<h2 id="minibatch"><a href="#minibatch" class="headerlink" title="minibatch:"></a>minibatch:</h2><p>参数不变，只是每次处理1&#x2F;4 batch的minibatch</p>
+<p><img src="/2025/10/20/solve-extra-overhead/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20251020200129220.png" alt="image-20251020200129220"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>耗时 (s)</th>
+<th>占比 (%)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>gen</td>
+<td><strong>16.081</strong></td>
+<td><strong>63.01 %</strong></td>
+</tr>
+<tr>
+<td>reward</td>
+<td>0.131</td>
+<td>0.51 %</td>
+</tr>
+<tr>
+<td>old_log_prob</td>
+<td>2.775</td>
+<td>10.87 %</td>
+</tr>
+<tr>
+<td>ref</td>
+<td>2.323</td>
+<td>9.10 %</td>
+</tr>
+<tr>
+<td>adv</td>
+<td>0.021</td>
+<td>0.08 %</td>
+</tr>
+<tr>
+<td>update_actor</td>
+<td>4.697</td>
+<td>18.38 %</td>
+</tr>
+</tbody></table>
+<p>总耗时26.028s，总差值 &#x3D; 26.028 − 17.534 &#x3D; <strong>8.494 s</strong></p>
+<p>比较结果：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>Δ耗时 (s)</th>
+<th>占差值比例 (%)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>gen</td>
+<td><strong>6.915</strong></td>
+<td><strong>81.44 %</strong></td>
+</tr>
+<tr>
+<td>reward</td>
+<td>0.057</td>
+<td>0.67 %</td>
+</tr>
+<tr>
+<td>old_log_prob</td>
+<td>0.543</td>
+<td>6.39 %</td>
+</tr>
+<tr>
+<td>ref</td>
+<td>0.530</td>
+<td>6.24 %</td>
+</tr>
+<tr>
+<td>adv</td>
+<td>–0.0003</td>
+<td>–0.00 %</td>
+</tr>
+<tr>
+<td>update_actor</td>
+<td>0.449</td>
+<td>5.29 %</td>
+</tr>
+</tbody></table>
+<p><strong>解释</strong>：</p>
+<ol>
+<li><p>gen：耗时增加最大，原因：<strong>batch不满</strong>未充分利用GPU资源。baseline对128$\times$2个样本decode 1024次，而在minibatch中，需要分4次，每次对32$\times$2个样本decode 1024次；</p>
+</li>
+<li><p>ref&amp;old_log_prob&amp;update_actor：主要是<strong>通信开销</strong>，baseline和minibatch每次处理的batch_per_gpu都设置为1，因此实际处理的样本数量是相同的，但进程间（ray在worker之间通信）、main memory与global memory之间由于minibatch的原因需要多次传递数据（虽然总数据量一样）。</p>
+</li>
+<li><p>以上实验没有开启offload_param等，否则多次加载\卸载会引入额外<strong>通信开销</strong>。</p>
+</li>
+</ol>
+<p><img src="/2025/10/20/solve-extra-overhead/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20251023145901723.png" alt="image-20251023145901723"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>即，切成minibatch后，存在两个问题：</p>
+<ol>
+<li>样本生成的batch可能打不满；</li>
+<li>即使打满了，1次长尾变成n次长尾。</li>
+</ol>
+<h2 id="one-gen-minibatch"><a href="#one-gen-minibatch" class="headerlink" title="one_gen_minibatch"></a>one_gen_minibatch</h2><p>为了减少gen的开销，一次gen，其他部分按minibatch处理：</p>
+<p><img src="/2025/10/20/solve-extra-overhead/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20251020200511398.png" alt="image-20251020200511398"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>耗时 (s)</th>
+<th>占比 (%)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>gen</td>
+<td><strong>8.838</strong></td>
+<td><strong>45.25 %</strong></td>
+</tr>
+<tr>
+<td>reward</td>
+<td>0.118</td>
+<td>0.60 %</td>
+</tr>
+<tr>
+<td>old_log_prob</td>
+<td>3.019</td>
+<td>15.46 %</td>
+</tr>
+<tr>
+<td>ref</td>
+<td>2.694</td>
+<td>13.79 %</td>
+</tr>
+<tr>
+<td>adv</td>
+<td>0.0286</td>
+<td>0.15 %</td>
+</tr>
+<tr>
+<td>update_actor</td>
+<td>4.839</td>
+<td>24.75 %</td>
+</tr>
+</tbody></table>
+<p>总计  19.537 s<br>差值 &#x3D; 19.537-17.534&#x3D;<strong>2.003 s</strong></p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>Δ耗时 (s)</th>
+<th>占差值比例 (%)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>gen</td>
+<td><strong>-0.328</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>reward</td>
+<td>+0.044</td>
+<td>2.20 %</td>
+</tr>
+<tr>
+<td>old_log_prob</td>
+<td>+0.787</td>
+<td>39.29 %</td>
+</tr>
+<tr>
+<td>ref</td>
+<td>+0.901</td>
+<td>45.00 %</td>
+</tr>
+<tr>
+<td>adv</td>
+<td>+0.007</td>
+<td>0.35 %</td>
+</tr>
+<tr>
+<td>update_actor</td>
+<td>+0.591</td>
+<td>xxxxxxxxxx PA1&#x2F; ├── hist.c                         # 直方图串行版本 ├── omp_hist.c                     # 直方图并行版本 ├── matrix.c                       # 矩阵乘法串行版本 ├── omp_matrix.c                   # 矩阵乘法并行版本 │ ├── hist.out                       # 编译得到的直方图串行可执行文件 ├── omp_hist.out                   # 编译得到的直方图并行可执行文件 ├── matrix.out                     # 编译得到的矩阵乘法串行可执行文件 ├── omp_matrix.out                 # 编译得到的矩阵乘法并行可执行文件 │ ├── hist.sh                        # 编译运行直方图串行&#x2F;并行程序的脚本 ├── matrix.sh                      # 编译运行矩阵乘法串行&#x2F;并行程序的脚本 │ ├── report&#x2F; │   ├── images&#x2F;                    # 实验结果图像目录 │   │    ├── hist_time_vs_threads.png │   │    ├── hist_speedup_vs_threads.png          ├── hist_results_table.png │   │    ├── matrix_time_vs_threads.png │   │    ├── matrix_speedup_vs_threads.png │   │    └── matrix_results_table.png │   │ │   ├── hist_results.csv               # 直方图实验原始数据 │   ├── hist_results_with_speedup.csv  # 含加速比的直方图数据 │   ├── matrix_results.csv             # 矩阵乘法实验原始数据 │   ├── matrix_results_with_speedup.csv# 含加速比的矩阵乘法数据 │   │ │   ├── histogram_benchmark.c          # 直方图主实验程序 │   ├── histogram_benchmark            # 编译生成的直方图可执行文件 │   ├── histogram_benchmark.sh         # 直方图自动化运行脚本 │   │ │   ├── matrix_benchmark.c             # 矩阵乘法主实验程序 │   ├── matrix_benchmark               # 编译生成的矩阵乘法可执行文件 │   ├── matrix_benchmark.sh            # 矩阵乘法自动化运行脚本 │   │ │   ├── plot_histogram_perf_avg.py     # 绘制直方图性能曲线 │   ├── plot_matrix_perf_avg.py        # 绘制矩阵乘法性能曲线 │   │ │   ├── test_matmul_correctness.c      # 验证矩阵乘法正确性的程序 │   ├── test_matmul_correctness        # 其编译可执行文件 │   │ │   └── README.md （可选）            # 实验简要说明 │ csharp</td>
+</tr>
+</tbody></table>
+<p>gen明显减少，其他仍因为多次数据通信耗时。</p>
+<p>因此，如果我们希望用到old_log_prob&amp;ref&amp;update_actor的通信空闲，那么需要加大重叠率，minibatch尽量少，同时为了避免batch过小导致gen耗时太长，应该一次gen完所有样本。另外，需要将数据通信或load\offload的时间与gen也重叠，这样才能降低minibatch所带来的开销。</p>
+<p>即;</p>
+<p><img src="/2025/10/20/solve-extra-overhead/Users\25490\Downloads\pipline.drawio.png" alt="pipline.drawio"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>R表示推理，T表示其他stage，因此需要借鉴stream RL的方式 ，最开始就gen 全部的batch，一旦有minibatch大小的样本生成完成，即训练，不再等待。当然，如果没有长尾分布，所有样本都同一时刻decode结束，那么将退回至baseline，没有重叠，同时还有数据通信开销。</p>
+<h2 id="stream-pipline-direct-overlap"><a href="#stream-pipline-direct-overlap" class="headerlink" title="stream pipline direct overlap"></a>stream pipline direct overlap</h2><p><img src="/2025/10/20/solve-extra-overhead/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20251021220213717.png" alt="image-20251021220213717"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>总耗时17.34s，多次实验验证，耗时与baseline(展示为17.54s)差不多。这是因为gen重叠了2~3个ministep，在batch打满的情况下，重叠了上述分析中数据传递的大部分通信开销（非kernel，而是ray.get以及main memory与global memory等）。但是这样直接重叠，重叠的长度不可控，gen与其他阶段被OS调度（如上图第三个ministep没有完全重叠）。</p>
+<p>如果开启offload：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">actor_rollout_ref.actor.megatron.param_offload=False \</span><br><span class="line">actor_rollout_ref.actor.megatron.grad_offload=True \</span><br><span class="line">actor_rollout_ref.actor.megatron.optimizer_offload=True \</span><br><span class="line">actor_rollout_ref.ref.megatron.param_offload=True \</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>load&#x2F;offload耗时 (s)</th>
+<th>总体耗时(s)</th>
+<th>差值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>1.81</td>
+<td>21.21</td>
+<td>19.40</td>
+</tr>
+<tr>
+<td>one_gen_minibatch</td>
+<td>6.64</td>
+<td>26.05</td>
+<td>19.41</td>
+</tr>
+<tr>
+<td>stream pipline direct overlap</td>
+<td>6.97</td>
+<td>23.90</td>
+<td>16.93</td>
+</tr>
+</tbody></table>
+<p>one_gen_minibatch四次minibatch比baseline要多3次param\grad和optimizer的load与offload开销,因此相应时间约4倍，如果去掉这部分耗时，差值相似。stream pipline direct overlap的timeline如下图所示，因为与部分ministep重叠，总体耗时减少。</p>
+<p><img src="/2025/10/20/solve-extra-overhead/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20251022215946103.png" alt="image-20251022215946103"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p><img src="/2025/10/20/solve-extra-overhead/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20251023095345494.png" alt="image-20251023095345494"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>Nsight可以看到，load model param的时候（HtoD），vllm step同时执行，因此掩盖了这部分时间。</p>
+<p>batch从128加到256，长度从1024加到4096，其余不变：</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>load&#x2F;offload耗时 (s)</th>
+<th>总体耗时(s)</th>
+<th>差值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline</td>
+<td>1.81</td>
+<td>42.52</td>
+<td>40.63</td>
+</tr>
+<tr>
+<td>one_gen_minibatch</td>
+<td>7.16</td>
+<td>47.91</td>
+<td>40.75</td>
+</tr>
+<tr>
+<td>stream pipline direct overlap</td>
+<td>7.19</td>
+<td>43.90</td>
+<td>36.71</td>
+</tr>
+</tbody></table>
+<h2 id="stream-pipline-scheduled-overlap"><a href="#stream-pipline-scheduled-overlap" class="headerlink" title="stream pipline scheduled overlap"></a>stream pipline scheduled overlap</h2><p>尝试利用all-to-all，单机8卡中，该实验中all-to-all通信时间约5s，存在3&#x2F;4*5&#x3D;3.25s的空间（整体耗时约40s，有8.1%加速空间）</p>
+<p><img src="/2025/10/20/solve-extra-overhead/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20251023130549060.png" alt="image-20251023130549060"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>之前的思路为，一次vllm的decode叠加一次all-to-all，通过统计执行的次数（如果decode次数超过all-to-all次数就等待，反之亦然）。</p>
+<h3 id="方法"><a href="#方法" class="headerlink" title="方法"></a>方法</h3><p>一个GPU绑定两个进程并行，actor_upadte 、ref_policy等任务在一个进程，rollout单独在一个进程。<br>绑定在一个GPU上的进程通过共享内存通信，通过比较训练和推理经过的”检查点“次数控制overlap频率。</p>
+<ul>
+<li><strong>Sensitive Zone（并行窗口）</strong>：允许进程并行运行的时间片。</li>
+<li><strong>Scheduler（调度器）</strong>：通过共享内存和条件变量控制两个进程的同步节奏。</li>
+<li><strong>关键状态变量：</strong><ul>
+<li><code>zone</code>：是否处于并行区（1&#x3D;开启窗口，0&#x3D;关闭窗口）</li>
+<li><code>allow</code>：训练进程已完成的步骤个数（train-done）</li>
+<li><code>check</code>：推理线程已完成的步骤个数（infer-done）</li>
+</ul>
+</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>动作</th>
+<th>执行方</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sensitive_zone_start()</code></td>
+<td>训练&#x2F;推理</td>
+<td>开启并行窗口 (<code>zone=1</code>)</td>
+</tr>
+<tr>
+<td><code>train_done()</code></td>
+<td>训练</td>
+<td>allow+&#x3D;1，执行完一次训练步</td>
+</tr>
+<tr>
+<td><code>train_check_point()</code></td>
+<td>训练</td>
+<td>比较allow和check，若推理滞后自旋等待</td>
+</tr>
+<tr>
+<td><code>infer_check_point()</code></td>
+<td>推理</td>
+<td>比较allow和check，若训练滞后自旋等待</td>
+</tr>
+<tr>
+<td><code>infer_done()</code></td>
+<td>推理</td>
+<td>check+&#x3D;1，执行完一次推理步</td>
+</tr>
+<tr>
+<td><code>senstive_zone_end_notify_train()</code></td>
+<td>训练</td>
+<td>关闭窗口并结束训练进程自旋</td>
+</tr>
+<tr>
+<td><code>senstive_zone_end_notify_infer()</code></td>
+<td>推理</td>
+<td>关闭窗口并结束推理进程自旋</td>
+</tr>
+<tr>
+<td><code>v.infer_steps</code> &#x2F; <code>v.train_steps</code></td>
+<td>调度参数</td>
+<td>控制推理与训练的步频比（如 1:2等）</td>
+</tr>
+</tbody></table>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">sequenceDiagram</span><br><span class="line">    participant Train as 训练流(A2A所在进程)</span><br><span class="line">    participant Infer as 推理流(rollout/vLLM)</span><br><span class="line">    participant Sched as 调度器(共享内存)</span><br><span class="line">    participant GPU as GPU</span><br><span class="line"></span><br><span class="line">    Note over Train,Infer: 开始调度</span><br><span class="line">    Train-&gt;&gt;GPU: launch all_to_all(async_op=True)</span><br><span class="line">    Train--&gt;&gt;Sched: train_done()  </span><br><span class="line">    par </span><br><span class="line">        Sched--&gt;&gt;Infer: infer_check_point()</span><br><span class="line">    and overlap start</span><br><span class="line">    	GPU-&gt;&gt;GPU: vllm step</span><br><span class="line">        GPU-&gt;&gt;GPU:  all-to-all kernels</span><br><span class="line">    and overlap end</span><br><span class="line">    	Infer--&gt;&gt;Sched: infer_done()</span><br><span class="line">    	Sched--&gt;&gt;Train: train_check_point()</span><br><span class="line">        Train-&gt;&gt;GPU: handle.wait() </span><br><span class="line">    end</span><br><span class="line">    Note over Train,Infer: 调度结束</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>但是这会带来问题：</p>
+<ol>
+<li><p>当all-to-all&#x2F;decode的时间过小或过大时，one decode one alll-to-all带来浪费，即可以重叠若干步，但只重叠1步；</p>
+</li>
+<li><p>ray.get()、cpu与gpu等通信开销无法掩盖，即，只有训练的all-to-all才允许推理decode，其他时间推理都在挂起；</p>
+</li>
+</ol>
+<p>我们事先无法得知准确的decode或all-to-all时间，虽然可以先profile再规定decode与all-to-all的比率，但这无法解决2。</p>
+<p>因此合适的方法是采用lazy schedule的方式，执行时根据实际通信间隙动态重叠，即当通信未完成时，贪心连续decode，但是这样做有可能会引发通信死锁，即GPU 0在推理Send，训练挂起；GPU1在训练Send，推理挂起，互相等待，目前还在调研可靠的方法。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>利用通信时间-&gt;minibach-&gt;引入额外开销-&gt;stream minibatch，掩盖额外开销-&gt;调度掩盖通信</p>
+<ul>
+<li><p>stream minibatch</p>
+<p>整个batch的prompt一次性送到vllm，每当凑够minibatch，直接进入reward等阶段，不再等待全部生成完。</p>
+</li>
+<li><p>overlap:</p>
+<p>当使用megatron做前向或后向计算时，一次all-to-all一次decode重叠，其他时间推理和训练进程并行。</p>
+</li>
+</ul>
+<h2 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h2><ol>
+<li><p>推理、训练并行峰值显存在本实验中显著增加（与batch和文本长度有关）.</p>
+</li>
+<li><p>长文本场景下，样本生成时间远超其他阶段，可加速的空间有限。</p>
+</li>
+<li><p>driver process采用轮询的方式，获取推理引擎已完成的样本，多次轮询引入额外开销（未测量时间），增加CPU负担。</p>
+</li>
+<li><p>需要改进overlap的方式，充分利用通信空闲。</p>
+</li>
+</ol>
+<h2 id="下一步工作"><a href="#下一步工作" class="headerlink" title="下一步工作"></a>下一步工作</h2><ol>
+<li>在stream pipline的基础上（接近baseline），设计更合理的调度策略（达到把理论上可以利用的all-to-all时间用上，如8卡达到8%的收益）</li>
+<li>参考NemoRL，把参数同步补上。</li>
+<li>除了all-to-all，利用其他非占用GPU计算资源的时间（如all-reduce）</li>
+</ol>
+<h1 id="展望"><a href="#展望" class="headerlink" title="展望"></a>展望</h1><ol>
+<li>是否可以把其他通信时间也用上？观察all-reduce也占比超过7%，进一步让推理和训练计算-通信交错执行，互相重叠？</li>
+<li>有没有不用切minibatch的方法？例如样本生成送两倍的batch，其中较短的50%生成后训练，其他50%长样本继续生成(与训练并行)，第二轮，将长样本当作草稿并行验证(因为就是上一轮的推理结果，接收率应该较高)，这样既不用切minibatch，也部分解决长尾问题，利用了通信空闲，如果接收率较高的话，应该会有收益。</li>
+</ol>
+<h1 id="后续工作进展"><a href="#后续工作进展" class="headerlink" title="后续工作进展"></a>后续工作进展</h1><h2 id="更灵活的调度策略"><a href="#更灵活的调度策略" class="headerlink" title="更灵活的调度策略"></a>更灵活的调度策略</h2><p>目的：为创造推理与训练的并行重叠机会，需要将verl的on-policy实现改造，有两种方式：</p>
+<ol>
+<li>minibatch：切成小块第n个minibatch的推理与第n-1个minibatch的训练重叠</li>
+<li>stream: 按生产者消费者模式，考虑样本长短不一，短样本生成完毕后不必等待直接训练，与未完成的长样本重叠。</li>
+</ol>
+<p>两个方法的思路类似，stream的方式优势是batch不会打不满，与baseline一致，minibatch相比而言的好处在于即便没有长尾也能保证重叠。</p>
+<p>与verl的baseline相比，所引入的额外开销包括：</p>
+<ol>
+<li><p>batch不满：由于训练会在内部在按micro batch处理数据，因此同样micro batch情况下，前向和后向训练时间基本不变；而推理（样本生成）在batch不够大的情况下会显著引入额外开销，mini batch够大时(&gt;128)问题消失。</p>
+</li>
+<li><p>访存：数据分多次从dirver process收发，会引入进程间（ray.remote&#x2F;get）通信、主内存和显存间通信等额外开销。数据除了包含样本外，在某些显存优化选项开启下还包括模型权重等。</p>
+</li>
+</ol>
+<p>1需要尽量增大batch; 2需要让推理在访存时也生成样本,把这部分时间重叠掉. 即:</p>
+<p>除了all-to-all时间外, 引入的额外访存也需要利用. 对于推理和训练来说,只要保证推理的step与训练的前向&#x2F;反向非all-to-all区域错开避免竞争,其他的部分应该完全并行,因此需要实现:</p>
+<p>训练进程在任一时刻均可发起并行(如load model结束后)</p>
+<img src="/2025/10/20/solve-extra-overhead/Users\25490\Downloads\schedule_adaptive.drawio.svg" alt="schedule_adaptive.drawio" style="zoom:150%;"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'>
+
+<p>难点在于,在程序执行前,并不能事先确定load model结束后各gpu绑定的rollout执行到了哪一步(甚至有些rollout rank分配到的样本比较短,已经执行完毕).    在多机多卡场景下,,会出现以下情况:</p>
+<img src="/2025/10/20/solve-extra-overhead/Users\25490\Downloads\lock.drawio.svg" alt="lock.drawio" style="zoom: 150%;"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'>
+
+<p>rank0 收到训练的并行信号,挂起; rank1 错过了,在下一个step中需要通信,而rank0此时已挂起,死锁. 对每次step做阻塞也不行,因为各rank收到的训练发起并行信号也不是同步的,同时阻塞需要确定通信组,但有的rank已经做完生成,不会执行到阻塞的代码.</p>
+<p>目前做法: 训练在准备并行前,读取各rollout rank已经执行的step数,在训练通信组all_reduce,去max step, 通知rollout rank在max step + 1同步进入并行,还有些bug.</p>
+<h2 id="MoE-想法"><a href="#MoE-想法" class="headerlink" title="MoE 想法"></a>MoE 想法</h2><p><img src="/2025/10/20/solve-extra-overhead/Users\25490\AppData\Roaming\Typora\typora-user-images\image-20251028145518490.png" alt="image-20251028145518490"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<p>在这种场景下,根据Rollout的路由结果,在训练时<strong>对于每个batch在每一层的tokens, 动态分配各GPU的专家(提前复制等)</strong>, 平衡训练时的专家负载, 减少all-to-all通信时间.</p>
+<h1 id="附录"><a href="#附录" class="headerlink" title="附录"></a>附录</h1><p>实验分析的脚本：</p>
+<p>baseline:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">set</span> -x</span><br><span class="line"><span class="comment"># RAY_DEBUG=1</span></span><br><span class="line"><span class="comment"># Nsight profiling configuration</span></span><br><span class="line">PROFILE_STEPS=<span class="string">&quot;[2]&quot;</span> <span class="comment"># or [] or null</span></span><br><span class="line">PROFILE_RANKS_ALL=False <span class="comment"># or True</span></span><br><span class="line">PROFILE_RANKS=[2]</span><br><span class="line">DISCRETE=False <span class="comment"># or True</span></span><br><span class="line"><span class="comment"># PROFILE_CONTINUOUS_STEPS=True</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># # RAY_DEBUG=1</span></span><br><span class="line"><span class="comment"># # Nsight profiling configuration</span></span><br><span class="line"><span class="comment"># PROFILE_STEPS=&quot;[1]&quot; # or [] or null</span></span><br><span class="line"><span class="comment"># PROFILE_RANKS_ALL=True # or True</span></span><br><span class="line"><span class="comment"># PROFILE_RANKS=[0,1,2,3,4,5,6,7]</span></span><br><span class="line"><span class="comment"># DISCRETE=False # or True</span></span><br><span class="line"><span class="comment"># # PROFILE_CONTINUOUS_STEPS=True</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">export</span> CUDA_DEVICE_MAX_CONNECTIONS=1 <span class="comment"># For megatron communication/computation overlapping</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#recipe</span></span><br><span class="line">RECIPE_MODE=<span class="string">&quot;normal&quot;</span></span><br><span class="line"><span class="comment"># export RECIPE_MODE=&quot;normal&quot;</span></span><br><span class="line"><span class="comment"># export THREAD_ENABLE=True</span></span><br><span class="line"><span class="comment"># export Debug=True</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#profile</span></span><br><span class="line"><span class="comment"># export PROF_LOGDIR=&quot;/workspace/task1/torch_profiler/minibatch_pipline/$&#123;RECIPE_MODE&#125;/&quot;</span></span><br><span class="line"><span class="comment"># export USE_TORCH_PROFILE=False</span></span><br><span class="line"><span class="comment"># export WAIT=1</span></span><br><span class="line"><span class="comment"># export WARMUP=1</span></span><br><span class="line"><span class="comment"># export ACTIVE=1</span></span><br><span class="line"><span class="comment"># export REPEAT=1</span></span><br><span class="line"><span class="comment"># export RANKS=[0]</span></span><br><span class="line"><span class="comment"># # 0. download the model</span></span><br><span class="line"><span class="comment"># huggingface-cli download Qwen/Qwen1.5-MoE-A2.7B-Chat</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. convert the model to mcore format</span></span><br><span class="line"><span class="comment"># change the HF_MODEL_PATH and DIST_CKPT_PATH to your own path</span></span><br><span class="line">HF_MODEL_PATH=/workspace/model/qwen3_30b_a3b_mini</span><br><span class="line">DIST_CKPT_PATH=/workspace/model/mcore_ckpt/qwen3_30b_a3b_mini</span><br><span class="line"><span class="comment"># DIST_CKPT_PATH=$&#123;DIST_CKPT_PATH&#125;</span></span><br><span class="line"><span class="comment"># python -m scripts.converter_hf_to_mcore --hf_model_path $HF_MODEL_PATH --output_path $DIST_CKPT_PATH</span></span><br><span class="line"><span class="comment"># torchrun --nproc_per_node 8 --node_rank $&#123;RANK&#125; converter_hf_to_mcore.py --hf_model_path $HF_MODEL_PATH --output_path $DIST_CKPT_PATH</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. run the script</span></span><br><span class="line">gsm8k_train_path=/workspace/dataset/gsm8k/train.parquet</span><br><span class="line">gsm8k_test_path=/workspace/dataset/gsm8k/test.parquet</span><br><span class="line">train_files=<span class="variable">$gsm8k_train_path</span></span><br><span class="line">test_files=<span class="variable">$gsm8k_test_path</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># para</span></span><br><span class="line">PP=1</span><br><span class="line">TP=1</span><br><span class="line">EP=8</span><br><span class="line">CP=1</span><br><span class="line">VLLM_TP=4</span><br><span class="line">VLLM_MODE=<span class="variable">$RECIPE_MODE</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># whether use offload</span></span><br><span class="line">OFFLOAD_FLAG=True</span><br><span class="line"></span><br><span class="line"><span class="comment"># Ray</span></span><br><span class="line">RAY_ADDRESS=<span class="variable">$&#123;RAY_ADDRESS:-&quot;http://localhost:8265&quot;&#125;</span></span><br><span class="line">WORKING_DIR=<span class="variable">$&#123;WORKING_DIR:-&quot;<span class="variable">$&#123;PWD&#125;</span>&quot;&#125;</span></span><br><span class="line">RUNTIME_ENV=<span class="variable">$&#123;RUNTIME_ENV:-&quot;<span class="variable">$&#123;WORKING_DIR&#125;</span>/verl/trainer/runtime_env.yaml&quot;&#125;</span></span><br><span class="line">NNODES=<span class="variable">$&#123;NNODES:-1&#125;</span></span><br><span class="line">GPU_PER_NODE=<span class="variable">$&#123;GPU_PER_NODE:-8&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ray job submit --no-wait --runtime-env=&quot;$&#123;RUNTIME_ENV&#125;&quot; \</span></span><br><span class="line"><span class="comment">#     --working-dir &quot;$&#123;WORKING_DIR&#125;&quot; \</span></span><br><span class="line"><span class="comment">#     -- </span></span><br><span class="line">python3 -m verl.trainer.main_ppo \</span><br><span class="line">    --config-name=<span class="string">&#x27;ppo_megatron_trainer.yaml&#x27;</span>\</span><br><span class="line">    algorithm.adv_estimator=grpo \</span><br><span class="line">    +algorithm.recipe=<span class="variable">$RECIPE_MODE</span> \</span><br><span class="line">    data.train_files=<span class="string">&quot;<span class="variable">$train_files</span>&quot;</span> \</span><br><span class="line">    data.val_files=<span class="string">&quot;<span class="variable">$test_files</span>&quot;</span> \</span><br><span class="line">    data.train_batch_size=128 \</span><br><span class="line">    data.max_prompt_length=512 \</span><br><span class="line">    data.max_response_length=1024 \</span><br><span class="line">    data.filter_overlong_prompts=True \</span><br><span class="line">    data.truncation=<span class="string">&#x27;error&#x27;</span> \</span><br><span class="line">    actor_rollout_ref.model.path=<span class="variable">$HF_MODEL_PATH</span> \</span><br><span class="line">    actor_rollout_ref.actor.optim.lr=1e-6 \</span><br><span class="line">    actor_rollout_ref.actor.ppo_mini_batch_size=32 \</span><br><span class="line">    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \</span><br><span class="line">    actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=<span class="variable">$PP</span> \</span><br><span class="line">    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=<span class="variable">$TP</span> \</span><br><span class="line">    actor_rollout_ref.actor.megatron.expert_model_parallel_size=<span class="variable">$EP</span> \</span><br><span class="line">    actor_rollout_ref.actor.megatron.context_parallel_size=<span class="variable">$CP</span> \</span><br><span class="line">    actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \</span><br><span class="line">    actor_rollout_ref.actor.megatron.dist_checkpointing_path=<span class="variable">$DIST_CKPT_PATH</span> \</span><br><span class="line">    actor_rollout_ref.actor.use_kl_loss=True \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_coef=0.001 \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_type=low_var_kl \</span><br><span class="line">    actor_rollout_ref.actor.entropy_coeff=0 \</span><br><span class="line">    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \</span><br><span class="line">    actor_rollout_ref.rollout.tensor_model_parallel_size=<span class="variable">$VLLM_TP</span> \</span><br><span class="line">    actor_rollout_ref.rollout.name=vllm \</span><br><span class="line">    actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \</span><br><span class="line">    actor_rollout_ref.rollout.n=2 \</span><br><span class="line">    actor_rollout_ref.actor.megatron.param_offload=False \</span><br><span class="line">    actor_rollout_ref.actor.megatron.grad_offload=False \</span><br><span class="line">    actor_rollout_ref.actor.megatron.optimizer_offload=False \</span><br><span class="line">    actor_rollout_ref.ref.megatron.param_offload=False \</span><br><span class="line">    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \</span><br><span class="line">    actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=<span class="variable">$PP</span> \</span><br><span class="line">    actor_rollout_ref.ref.megatron.tensor_model_parallel_size=<span class="variable">$TP</span> \</span><br><span class="line">    actor_rollout_ref.ref.megatron.expert_model_parallel_size=<span class="variable">$EP</span> \</span><br><span class="line">    actor_rollout_ref.ref.megatron.context_parallel_size=<span class="variable">$CP</span> \</span><br><span class="line">    actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \</span><br><span class="line">    actor_rollout_ref.ref.megatron.dist_checkpointing_path=<span class="variable">$DIST_CKPT_PATH</span> \</span><br><span class="line">    actor_rollout_ref.rollout.profiler.enable=True \</span><br><span class="line">    actor_rollout_ref.rollout.profiler.ranks=<span class="variable">$PROFILE_RANKS</span> \</span><br><span class="line">    actor_rollout_ref.rollout.profiler.all_ranks=<span class="variable">$PROFILE_RANKS_ALL</span> \</span><br><span class="line">    actor_rollout_ref.actor.profiler.enable=True \</span><br><span class="line">    actor_rollout_ref.actor.profiler.ranks=<span class="variable">$PROFILE_RANKS</span> \</span><br><span class="line">    actor_rollout_ref.actor.profiler.all_ranks=<span class="variable">$PROFILE_RANKS_ALL</span> \</span><br><span class="line">    algorithm.use_kl_in_reward=False \</span><br><span class="line">    trainer.critic_warmup=0 \</span><br><span class="line">    trainer.logger=<span class="string">&#x27;[&quot;console&quot;]&#x27;</span> \</span><br><span class="line">    trainer.project_name=<span class="string">&#x27;verl_grpo_qwenMoe30b_gsm8k_math&#x27;</span> \</span><br><span class="line">    trainer.experiment_name=<span class="string">&#x27;qwenMoe30b_megatron&#x27;</span> \</span><br><span class="line">    trainer.n_gpus_per_node=<span class="variable">$GPU_PER_NODE</span> \</span><br><span class="line">    trainer.nnodes=<span class="variable">$NNODES</span> \</span><br><span class="line">    trainer.save_freq=-1 \</span><br><span class="line">    trainer.test_freq=-1 \</span><br><span class="line">    trainer.total_training_steps=3 \</span><br><span class="line">    trainer.val_before_train=False \</span><br><span class="line">    global_profiler.tool=nsys \</span><br><span class="line">    global_profiler.steps=<span class="variable">$PROFILE_STEPS</span> \</span><br><span class="line">    global_profiler.global_tool_config.nsys.discrete=<span class="variable">$DISCRETE</span> \</span><br><span class="line">    trainer.total_epochs=1 2&gt;&amp;1 | <span class="built_in">tee</span> /workspace/task1/verl/record/one_step_off_policy/normal/8GPUs/small_test/verl.log</span><br><span class="line">    </span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br></pre></td><td class="code"><pre><span class="line">长样本场景</span><br><span class="line"><span class="built_in">set</span> -x</span><br><span class="line"><span class="comment"># RAY_DEBUG=1</span></span><br><span class="line"><span class="comment"># Nsight profiling configuration</span></span><br><span class="line">PROFILE_STEPS=<span class="string">&quot;[5]&quot;</span> <span class="comment"># or [] or null</span></span><br><span class="line">PROFILE_RANKS_ALL=False <span class="comment"># or True</span></span><br><span class="line">PROFILE_RANKS=[2]</span><br><span class="line">DISCRETE=False <span class="comment"># or True</span></span><br><span class="line"><span class="comment"># PROFILE_CONTINUOUS_STEPS=True</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># # RAY_DEBUG=1</span></span><br><span class="line"><span class="comment"># # Nsight profiling configuration</span></span><br><span class="line"><span class="comment"># PROFILE_STEPS=&quot;[1]&quot; # or [] or null</span></span><br><span class="line"><span class="comment"># PROFILE_RANKS_ALL=True # or True</span></span><br><span class="line"><span class="comment"># PROFILE_RANKS=[0,1,2,3,4,5,6,7]</span></span><br><span class="line"><span class="comment"># DISCRETE=False # or True</span></span><br><span class="line"><span class="comment"># # PROFILE_CONTINUOUS_STEPS=True</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">export</span> CUDA_DEVICE_MAX_CONNECTIONS=1 <span class="comment"># For megatron communication/computation overlapping</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#recipe</span></span><br><span class="line">RECIPE_MODE=<span class="string">&quot;normal&quot;</span></span><br><span class="line"><span class="comment"># export RECIPE_MODE=&quot;normal&quot;</span></span><br><span class="line"><span class="comment"># export THREAD_ENABLE=True</span></span><br><span class="line"><span class="comment"># export Debug=True</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#profile</span></span><br><span class="line"><span class="comment"># export PROF_LOGDIR=&quot;/workspace/task1/torch_profiler/minibatch_pipline/$&#123;RECIPE_MODE&#125;/&quot;</span></span><br><span class="line"><span class="comment"># export USE_TORCH_PROFILE=False</span></span><br><span class="line"><span class="comment"># export WAIT=1</span></span><br><span class="line"><span class="comment"># export WARMUP=1</span></span><br><span class="line"><span class="comment"># export ACTIVE=1</span></span><br><span class="line"><span class="comment"># export REPEAT=1</span></span><br><span class="line"><span class="comment"># export RANKS=[0]</span></span><br><span class="line"><span class="comment"># # 0. download the model</span></span><br><span class="line"><span class="comment"># huggingface-cli download Qwen/Qwen1.5-MoE-A2.7B-Chat</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. convert the model to mcore format</span></span><br><span class="line"><span class="comment"># change the HF_MODEL_PATH and DIST_CKPT_PATH to your own path</span></span><br><span class="line">HF_MODEL_PATH=/workspace/model/qwen3_30b_a3b_mini</span><br><span class="line">DIST_CKPT_PATH=/workspace/model/mcore_ckpt/qwen3_30b_a3b_mini</span><br><span class="line"><span class="comment"># DIST_CKPT_PATH=$&#123;DIST_CKPT_PATH&#125;</span></span><br><span class="line"><span class="comment"># python -m scripts.converter_hf_to_mcore --hf_model_path $HF_MODEL_PATH --output_path $DIST_CKPT_PATH</span></span><br><span class="line"><span class="comment"># torchrun --nproc_per_node 8 --node_rank $&#123;RANK&#125; converter_hf_to_mcore.py --hf_model_path $HF_MODEL_PATH --output_path $DIST_CKPT_PATH</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. run the script</span></span><br><span class="line">gsm8k_train_path=/workspace/dataset/gsm8k/train.parquet</span><br><span class="line">gsm8k_test_path=/workspace/dataset/gsm8k/test.parquet</span><br><span class="line">train_files=<span class="variable">$gsm8k_train_path</span></span><br><span class="line">test_files=<span class="variable">$gsm8k_test_path</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># para</span></span><br><span class="line">PP=1</span><br><span class="line">TP=1</span><br><span class="line">EP=8</span><br><span class="line">CP=1</span><br><span class="line">VLLM_TP=4</span><br><span class="line">VLLM_MODE=<span class="variable">$RECIPE_MODE</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># whether use offload</span></span><br><span class="line">OFFLOAD_FLAG=True</span><br><span class="line"></span><br><span class="line"><span class="comment"># Ray</span></span><br><span class="line">RAY_ADDRESS=<span class="variable">$&#123;RAY_ADDRESS:-&quot;http://localhost:8265&quot;&#125;</span></span><br><span class="line">WORKING_DIR=<span class="variable">$&#123;WORKING_DIR:-&quot;<span class="variable">$&#123;PWD&#125;</span>&quot;&#125;</span></span><br><span class="line">RUNTIME_ENV=<span class="variable">$&#123;RUNTIME_ENV:-&quot;<span class="variable">$&#123;WORKING_DIR&#125;</span>/verl/trainer/runtime_env.yaml&quot;&#125;</span></span><br><span class="line">NNODES=<span class="variable">$&#123;NNODES:-1&#125;</span></span><br><span class="line">GPU_PER_NODE=<span class="variable">$&#123;GPU_PER_NODE:-8&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ray job submit --no-wait --runtime-env=&quot;$&#123;RUNTIME_ENV&#125;&quot; \</span></span><br><span class="line"><span class="comment">#     --working-dir &quot;$&#123;WORKING_DIR&#125;&quot; \</span></span><br><span class="line"><span class="comment">#     -- </span></span><br><span class="line">python3 -m verl.trainer.main_ppo \</span><br><span class="line">    --config-name=<span class="string">&#x27;ppo_megatron_trainer.yaml&#x27;</span>\</span><br><span class="line">    algorithm.adv_estimator=grpo \</span><br><span class="line">    +algorithm.recipe=<span class="variable">$RECIPE_MODE</span> \</span><br><span class="line">    data.train_files=<span class="string">&quot;<span class="variable">$train_files</span>&quot;</span> \</span><br><span class="line">    data.val_files=<span class="string">&quot;<span class="variable">$test_files</span>&quot;</span> \</span><br><span class="line">    data.train_batch_size=256 \</span><br><span class="line">    data.max_prompt_length=512 \</span><br><span class="line">    data.max_response_length=4096 \</span><br><span class="line">    data.filter_overlong_prompts=True \</span><br><span class="line">    data.truncation=<span class="string">&#x27;error&#x27;</span> \</span><br><span class="line">    actor_rollout_ref.model.path=<span class="variable">$HF_MODEL_PATH</span> \</span><br><span class="line">    actor_rollout_ref.actor.optim.lr=1e-6 \</span><br><span class="line">    actor_rollout_ref.actor.ppo_mini_batch_size=64 \</span><br><span class="line">    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \</span><br><span class="line">    actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=<span class="variable">$PP</span> \</span><br><span class="line">    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=<span class="variable">$TP</span> \</span><br><span class="line">    actor_rollout_ref.actor.megatron.expert_model_parallel_size=<span class="variable">$EP</span> \</span><br><span class="line">    actor_rollout_ref.actor.megatron.context_parallel_size=<span class="variable">$CP</span> \</span><br><span class="line">    actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \</span><br><span class="line">    actor_rollout_ref.actor.megatron.dist_checkpointing_path=<span class="variable">$DIST_CKPT_PATH</span> \</span><br><span class="line">    actor_rollout_ref.actor.use_kl_loss=True \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_coef=0.001 \</span><br><span class="line">    actor_rollout_ref.actor.kl_loss_type=low_var_kl \</span><br><span class="line">    actor_rollout_ref.actor.entropy_coeff=0 \</span><br><span class="line">    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \</span><br><span class="line">    actor_rollout_ref.rollout.tensor_model_parallel_size=<span class="variable">$VLLM_TP</span> \</span><br><span class="line">    actor_rollout_ref.rollout.name=vllm \</span><br><span class="line">    actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \</span><br><span class="line">    actor_rollout_ref.rollout.n=2 \</span><br><span class="line">    actor_rollout_ref.actor.megatron.param_offload=False \</span><br><span class="line">    actor_rollout_ref.actor.megatron.grad_offload=True \</span><br><span class="line">    actor_rollout_ref.actor.megatron.optimizer_offload=True \</span><br><span class="line">    actor_rollout_ref.ref.megatron.param_offload=True \</span><br><span class="line">    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \</span><br><span class="line">    actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=<span class="variable">$PP</span> \</span><br><span class="line">    actor_rollout_ref.ref.megatron.tensor_model_parallel_size=<span class="variable">$TP</span> \</span><br><span class="line">    actor_rollout_ref.ref.megatron.expert_model_parallel_size=<span class="variable">$EP</span> \</span><br><span class="line">    actor_rollout_ref.ref.megatron.context_parallel_size=<span class="variable">$CP</span> \</span><br><span class="line">    actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \</span><br><span class="line">    actor_rollout_ref.ref.megatron.dist_checkpointing_path=<span class="variable">$DIST_CKPT_PATH</span> \</span><br><span class="line">    actor_rollout_ref.rollout.profiler.enable=True \</span><br><span class="line">    actor_rollout_ref.rollout.profiler.ranks=<span class="variable">$PROFILE_RANKS</span> \</span><br><span class="line">    actor_rollout_ref.rollout.profiler.all_ranks=<span class="variable">$PROFILE_RANKS_ALL</span> \</span><br><span class="line">    actor_rollout_ref.actor.profiler.enable=True \</span><br><span class="line">    actor_rollout_ref.actor.profiler.ranks=<span class="variable">$PROFILE_RANKS</span> \</span><br><span class="line">    actor_rollout_ref.actor.profiler.all_ranks=<span class="variable">$PROFILE_RANKS_ALL</span> \</span><br><span class="line">    algorithm.use_kl_in_reward=False \</span><br><span class="line">    trainer.critic_warmup=0 \</span><br><span class="line">    trainer.logger=<span class="string">&#x27;[&quot;console&quot;]&#x27;</span> \</span><br><span class="line">    trainer.project_name=<span class="string">&#x27;verl_grpo_qwenMoe30b_gsm8k_math&#x27;</span> \</span><br><span class="line">    trainer.experiment_name=<span class="string">&#x27;qwenMoe30b_megatron&#x27;</span> \</span><br><span class="line">    trainer.n_gpus_per_node=<span class="variable">$GPU_PER_NODE</span> \</span><br><span class="line">    trainer.nnodes=<span class="variable">$NNODES</span> \</span><br><span class="line">    trainer.save_freq=-1 \</span><br><span class="line">    trainer.test_freq=-1 \</span><br><span class="line">    trainer.total_training_steps=6 \</span><br><span class="line">    trainer.val_before_train=False \</span><br><span class="line">    global_profiler.tool=nsys \</span><br><span class="line">    global_profiler.steps=<span class="variable">$PROFILE_STEPS</span> \</span><br><span class="line">    global_profiler.global_tool_config.nsys.discrete=<span class="variable">$DISCRETE</span> \</span><br><span class="line">    trainer.total_epochs=1 2&gt;&amp;1 | <span class="built_in">tee</span> /workspace/task1/verl/record/one_step_off_policy/normal/8GPUs/offload_4096/verl.log</span><br></pre></td></tr></table></figure>
+
+
+
+
+</article>
+    
+    
+
+</div>
+<div class="trm-post-next-prev row">
+    <div class="col-lg-12">
+        <!-- title -->
+        <h5 class="trm-title-with-divider">
+            其他文章
+            <span data-number="02"></span>
+        </h5>
+    </div>
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/10/29/multi-process-ov2/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/RLHF/">
+                    RLHF
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/10/29/multi-process-ov2/" class="trm-anima-link">
+                    multi-process-ov2
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/10/29</li>
+                <li>21:06</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/10/16/parellel_report1/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="/img/block.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" #.">
+                    未分类
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/10/16/parellel_report1/" class="trm-anima-link">
+                    
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/10/16</li>
+                <li>16:48</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+</div>
+
+    
+
+
+
+                    <div class="trm-divider footer-divider"></div>
+
+                    <!-- footer -->
+                    <footer class="trm-footer-card trm-scroll-animation">
+
+    
+
+    
+
+    
+        <div class="trm-footer-item">
+            <span>
+                由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 v7.3.0
+            </span>
+            <span class="footer-separator" data-separator=" | "></span>
+            <span> 
+                主题 - 
+                <a rel="noopener" href='https://github.com/MaLuns/hexo-theme-async' target='_blank'>Async</a>
+                v2.2.6
+            </span>
+        </div>
+      
+
+     
+
+     
+</footer>
+                    <!-- footer end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <!-- body end -->
+
+            
+
+            
+<div class="trm-fixed-container">
+    
+    
+        <div class="trm-fixed-btn" data-title="阅读模式" onclick="asyncFun.switchReadMode()">
+            <i class="iconfont fas fa-book-reader"></i>
+        </div>
+    
+    
+    <div id="trm-back-top" class="trm-fixed-btn" data-title="回到顶部">
+        <i class="iconfont fas fa-arrow-up"></i>
+    </div>
+</div>
+        </div>
+      </div>
+      <!-- scroll container end -->
+  </div>
+  <!-- app wrapper end -->
+
+  
+  <!-- Plugin -->
+
+
+
+
+    
+    
+<script src="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+    
+
+    
+
+    
+
+    <!-- 数学公式 -->
+    
+
+    <!-- 评论插件 -->
+    
+        
+
+        
+    
+
+		
+
+
+
+
+    <!-- Service Worker -->
+    
+    <!-- baidu push -->
+    
+
+
+<script id="async-script" src="/js/main.js?v=2.2.6"></script>
+
+<!-- CDN -->
+
+
+    
+
+    
+
+    
+
+
+
+</body>
+
+</html>

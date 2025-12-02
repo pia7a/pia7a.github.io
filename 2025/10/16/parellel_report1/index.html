@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="x5-fullscreen" content="true">
+<meta name="full-screen" content="yes">
+<meta name="theme-color" content="#317EFB" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
+<meta name="description" content="🎓 并行程序设计实验报告—— OpenMP 并行性能测试与分析 🧾 基本信息   项目 内容    实验课程 COMP 4007: Parallel Processing and Computer Architecture   实验名称 Programming Assignment 1   学生姓名 谭志强   学号 25B951103   学院 计算机科学与技术学院   专业 电子信息">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hexo">
+<meta property="og:url" content="http://example.com/2025/10/16/parellel_report1/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="🎓 并行程序设计实验报告—— OpenMP 并行性能测试与分析 🧾 基本信息   项目 内容    实验课程 COMP 4007: Parallel Processing and Computer Architecture   实验名称 Programming Assignment 1   学生姓名 谭志强   学号 25B951103   学院 计算机科学与技术学院   专业 电子信息">
+<meta property="og:locale">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="article:published_time" content="2025-10-16T08:48:27.800Z">
+<meta property="article:modified_time" content="2025-10-18T09:29:56.038Z">
+<meta property="article:author" content="John Doe">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/404.jpg">
+
+
+<title >Hexo</title>
+
+<!-- Favicon -->
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='16x16' ></link>
+
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='32x32' ></link>
+
+
+
+
+<!-- Plugin -->
+
+
+
+
+    
+<link rel="stylesheet" href="/css/plugins/bootstrap.row.css">
+
+    
+<link rel="stylesheet" href="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.css">
+
+    
+    
+
+
+
+
+<!-- Icon -->
+
+    
+<link rel="stylesheet" href="/css/plugins/font-awesome.min.css">
+
+
+
+
+<!-- Variable -->
+<script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-10-18 17:29:56"};</script>
+
+<!-- Theme mode css -->
+<link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
+<script>
+    let defaultMode = ASYNC_CONFIG.theme.default !=='auto' ?  ASYNC_CONFIG.theme.default : (window.matchMedia("(prefers-color-scheme: light)").matches ? 'style-light' : 'style-dark')
+    let catchMode = localStorage.getItem('theme-mode') || defaultMode;
+    let type = catchMode === 'style-dark' ? 'add' : 'remove';
+    document.documentElement.classList[type]('dark')
+</script>
+
+<!-- CDN -->
+
+
+    
+    
+
+
+
+<!-- Site Analytics -->
+
+ 
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+
+  <!-- app wrapper -->
+  <div class="trm-app-frame">
+
+    <!-- page preloader -->
+    <div class="trm-preloader">
+    <div class="trm-holder">
+        <div class="preloader">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+</div>
+    <!-- page preloader end -->
+
+    <!-- change mode preloader -->
+    <div class="trm-mode-swich-animation-frame">
+    <div class="trm-mode-swich-animation">
+        <i class="i-sun"><i class="iconfont far fa-sun"></i></i>
+        <div class="trm-horizon"></div>
+        <i class="i-moon"><i class="iconfont far fa-moon"></i></i>
+    </div>
+</div>
+    <!-- change mode preloader end -->
+
+      <!-- scroll container -->
+      <div id="trm-dynamic-content" class="trm-swup-animation">
+        <div id="trm-scroll-container" class="trm-scroll-container" style="opacity: 0">
+            <!-- top bar -->
+            <header class="trm-top-bar">
+	<div class="container">
+		<div class="trm-left-side">
+			<!-- logo -->
+<a href="/" class="trm-logo-frame trm-anima-link">
+    
+        <img alt="logo" src="/img/favicon.svg">
+    
+    
+        <div class="trm-logo-text">
+            Async<span>zhiqiang</span>
+        </div>
+    
+</a>
+<!-- logo end -->
+		</div>
+		<div class="trm-right-side">
+			<!-- menu -->
+<div class="trm-menu">
+    <nav>
+        <ul>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/" target="">
+                    首页
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/archives/" target="">
+                    时间线
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/tags/" target="">
+                    标签
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/categories" target="">
+                    分类
+                </a>
+                
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+<!-- menu end -->
+			
+    <!-- mode switcher place -->
+    <div class="trm-mode-switcher-place">
+        <div class="trm-mode-switcher">
+            <i class="iconfont far fa-sun"></i>
+            <input class="tgl tgl-light" id="trm-swich" type="checkbox">
+            <label class="trm-swich" for="trm-swich"></label>
+            <i class="iconfont far fa-moon"></i>
+        </div>
+    </div>
+    <!-- mode switcher place end -->
+
+			
+		</div>
+		<div class="trm-menu-btn">
+			<span></span>
+		</div>
+	</div>
+</header>
+            <!-- top bar end -->
+
+            <!-- body -->
+            
+<div class="trm-content-start">
+    <!-- banner -->
+    <div class="trm-banner">
+    
+    <!-- banner cover -->
+    <img style="object-position:top;object-fit:cover;" alt="banner" class="trm-banner-cover" src="/img/banner.png">
+    <!-- banner cover end -->
+    
+
+    <!-- banner content -->
+    <div class="trm-banner-content trm-overlay">
+        <div class="container">
+            <div class="row">
+                
+                <div class="col-lg-4"></div>
+                
+                <div class="col-lg-8">
+
+                    <!-- banner title -->
+                    <div class="trm-banner-text ">
+                        <div class="trm-label trm-mb-20">
+                            NEWS LETTER
+                        </div>
+                        <h1 class="trm-mb-30 trm-hsmb-font">
+                            
+                        </h1>
+
+                        
+                            <ul class="trm-breadcrumbs trm-label">
+                                <li>
+                                    <a href="/" class="trm-anima-link">Home</a>
+                                </li>
+                                <li>
+                                    <span>
+                                        2025
+                                    </span>
+                                </li>
+                            </ul>
+                        
+                    </div>
+                    <!-- banner title end -->
+
+                    <!-- scroll hint -->
+                    <span id="scroll-triger" class="trm-scroll-hint-frame">
+                        <div class="trm-scroll-hint"></div>
+                        <span class="trm-label">Scroll down</span>
+                    </span>
+                    <!-- scroll hint end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- banner content end -->
+</div>
+    <!-- banner end -->
+    <div class="container">
+        <div class="row">
+            
+                <div class="trm-page-sidebar col-lg-4 hidden-sm">
+                    <!-- main card -->
+                    <div class="trm-main-card-frame trm-sidebar">
+    <div class="trm-main-card"> 
+        <!-- card header -->
+<div class="trm-mc-header">
+    <div class="trm-avatar-frame trm-mb-20">
+        <img alt="Avatar" class="trm-avatar" src="/img/avatar.jpg">
+    </div>
+    <h5 class="trm-name trm-mb-15">
+        看雪
+    </h5>
+    
+</div>
+<!-- card header end -->
+        <!-- sidebar social -->
+
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<div class="trm-social">
+    
+        <a href="https://github.com" title="Github" rel="nofollow" target="_blank">
+            <i class="iconfont fab fa-github"></i>
+        </a>
+    
+</div>
+
+<!-- sidebar social end -->
+        <!-- info -->
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<ul class="trm-table trm-mb-20">
+    
+        <li>
+            <div class="trm-label">
+                Residence:
+            </div>
+            <div class="trm-label trm-label-light">
+                Mars
+            </div>
+        </li>
+    
+</ul>
+<!-- info end -->
+
+        
+    </div>
+</div>
+                    <!-- main card end -->
+                </div>
+            
+            <div class="trm-page-content col-lg-8">
+                <div id="trm-content" class="trm-content">
+                    <div class="trm-post-info row hidden-sm">
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-calendar-alt trm-icon"></i><br>
+            10/16
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-clock trm-icon"></i><br>
+            16:48
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div id="post-author" class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-user trm-icon"></i><br>
+            John Doe
+        </div>
+    </div>
+</div>
+<div class="trm-card ">
+    <article id="article-container" class="trm-publication">
+    <h1 id="🎓-并行程序设计实验报告"><a href="#🎓-并行程序设计实验报告" class="headerlink" title="🎓 并行程序设计实验报告"></a>🎓 并行程序设计实验报告</h1><h2 id="——-OpenMP-并行性能测试与分析"><a href="#——-OpenMP-并行性能测试与分析" class="headerlink" title="—— OpenMP 并行性能测试与分析"></a>—— OpenMP 并行性能测试与分析</h2><hr>
+<h3 id="🧾-基本信息"><a href="#🧾-基本信息" class="headerlink" title="🧾 基本信息"></a>🧾 基本信息</h3><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>实验课程</td>
+<td>COMP 4007: Parallel Processing and Computer Architecture</td>
+</tr>
+<tr>
+<td>实验名称</td>
+<td>Programming Assignment 1</td>
+</tr>
+<tr>
+<td>学生姓名</td>
+<td>谭志强</td>
+</tr>
+<tr>
+<td>学号</td>
+<td>25B951103</td>
+</tr>
+<tr>
+<td>学院</td>
+<td>计算机科学与技术学院</td>
+</tr>
+<tr>
+<td>专业</td>
+<td>电子信息</td>
+</tr>
+<tr>
+<td>实验日期</td>
+<td>2025 年 10 月 16 日</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="一、实验目的"><a href="#一、实验目的" class="headerlink" title="一、实验目的"></a>一、实验目的</h2><ul>
+<li>掌握 <strong>OpenMP 并行编程模型</strong> 的基本用法；</li>
+<li>理解 <strong>任务划分、线程调度、数据共享与 reduction</strong> 等核心机制；</li>
+<li>比较串行与并行算法在运行时间、加速比、效率等指标上的差异；</li>
+<li>通过矩阵乘法和直方图统计任务，分析 CPU 多核并行的性能瓶颈。</li>
+</ul>
+<hr>
+<h2 id="二、实验设备与环境"><a href="#二、实验设备与环境" class="headerlink" title="二、实验设备与环境"></a>二、实验设备与环境</h2><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>操作系统</td>
+<td>Ubuntu 22.04 LTS</td>
+</tr>
+<tr>
+<td>编译器</td>
+<td>GCC 11.4.0 + OpenMP</td>
+</tr>
+<tr>
+<td>Python 环境</td>
+<td>3.10（用于绘图分析）</td>
+</tr>
+<tr>
+<td>CPU 型号</td>
+<td>Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz</td>
+</tr>
+<tr>
+<td>核心结构</td>
+<td>2 × 32 核 × 2 线程 &#x3D; <strong>128 逻辑线程</strong></td>
+</tr>
+<tr>
+<td>主频范围</td>
+<td>800 MHz ～ 3.4 GHz</td>
+</tr>
+<tr>
+<td>NUMA 节点</td>
+<td>2</td>
+</tr>
+<tr>
+<td>内存</td>
+<td>256 GB</td>
+</tr>
+<tr>
+<td>绘图工具</td>
+<td>Python + Seaborn + Matplotlib</td>
+</tr>
+<tr>
+<td>编辑工具</td>
+<td>Typora</td>
+</tr>
+</tbody></table>
+<hr>
+<p><strong>以下实验的时间统计，均先warm  up 2轮，再取3次结果平均，标准差等信息见表格，其中Efficiency为实际加速比与理想线性加速比的比值（0~1]。</strong></p>
+<h2 id="三、矩阵乘法实验"><a href="#三、矩阵乘法实验" class="headerlink" title="三、矩阵乘法实验"></a>三、矩阵乘法实验</h2><h3 id="3-1-实验背景"><a href="#3-1-实验背景" class="headerlink" title="3.1 实验背景"></a>3.1 实验背景</h3><p>矩阵乘法是典型的计算密集型任务，其时间复杂度为 $O(N^3)$。<br> 通过 OpenMP 并行化可有效利用多核 CPU，提升计算性能。</p>
+<hr>
+<h3 id="3-2-算法设计与实现"><a href="#3-2-算法设计与实现" class="headerlink" title="3.2 算法设计与实现"></a>3.2 算法设计与实现</h3><h4 id="串行算法"><a href="#串行算法" class="headerlink" title="串行算法"></a>串行算法</h4><p>采用标准的三重循环实现矩阵乘法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">for (i = 0; i &lt; N; i++) &#123;</span><br><span class="line">    for (j = 0; j &lt; N; j++) &#123;</span><br><span class="line">        double sum = 0;</span><br><span class="line">        for (k = 0; k &lt; N; k++) &#123;</span><br><span class="line">            sum += A[i][k] * B[k][j];</span><br><span class="line">        &#125;</span><br><span class="line">        C[i][j] = sum;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="并行算法"><a href="#并行算法" class="headerlink" title="并行算法"></a>并行算法</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">#pragma omp parallel for num_threads(thread_count) private(sum) schedule(static)</span><br><span class="line">for (int k = 0; k &lt; N * N; k++) &#123;</span><br><span class="line">    sum = 0;</span><br><span class="line">    int i = k / N;</span><br><span class="line">    int j = k % N;</span><br><span class="line">    for (int w = 0; w &lt; N; w++) &#123;</span><br><span class="line">        sum += A[i * N + w] * B[w * N + j];</span><br><span class="line">    &#125;</span><br><span class="line">    C[i * N + j] = sum;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>将二维 <code>(i, j)</code> 展平为一维索引；</li>
+<li>使用 <code>#pragma omp parallel for</code> 并行外层循环；</li>
+<li><code>sum</code> 设置为 <code>private</code>；</li>
+<li><code>schedule(static)</code> 实现负载均衡。</li>
+</ul>
+<hr>
+<h3 id="3-3-实验结果与分析"><a href="#3-3-实验结果与分析" class="headerlink" title="3.3 实验结果与分析"></a>3.3 实验结果与分析</h3><p><strong>注意，由于实验提供的matrix.c中，矩阵为在栈上创建，为避免N太大引起段错误，以下实验为在堆上开辟空间创建矩阵，此部分时间不计入。</strong></p>
+<h4 id="（1）运行时间-vs-线程数"><a href="#（1）运行时间-vs-线程数" class="headerlink" title="（1）运行时间 vs 线程数"></a>（1）运行时间 vs 线程数</h4><p><img src="/2025/10/16/parellel_report1/Users\25490\Desktop\blog\source_posts\parellel_report1\matrix_time.png" alt="image-20251016165241323"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h4 id="（2）加速比-vs-线程数（基准为-1-线程）"><a href="#（2）加速比-vs-线程数（基准为-1-线程）" class="headerlink" title="（2）加速比 vs 线程数（基准为 1 线程）"></a>（2）加速比 vs 线程数（基准为 1 线程）</h4><p><img src="/2025/10/16/parellel_report1/Users\25490\Desktop\blog\source_posts\parellel_report1\matrix_speedup.png" alt="image-20251016165013171"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h4 id="（4）实验结果表格"><a href="#（4）实验结果表格" class="headerlink" title="（4）实验结果表格"></a>（4）实验结果表格</h4><p><img src="/2025/10/16/parellel_report1/Users\25490\Desktop\blog\source_posts\parellel_report1\matrix_table.png" alt="image-20251016164743597"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<hr>
+<h3 id="3-4-结果分析"><a href="#3-4-结果分析" class="headerlink" title="3.4 结果分析"></a>3.4 结果分析</h3><ul>
+<li>N较大时，当线程数从 1 增至 8 时，加速比接近线性；</li>
+<li>对小矩阵（N&#x3D;100）而言，创建线程等并行开销占主导，影响效率；</li>
+<li>对大矩阵（N≥400），计算密集型特征明显，加速明显；</li>
+<li>物理核心数足够是主要决定因素。</li>
+</ul>
+<hr>
+<h2 id="四、直方图统计实验"><a href="#四、直方图统计实验" class="headerlink" title="四、直方图统计实验"></a>四、直方图统计实验</h2><h3 id="4-1-实验背景"><a href="#4-1-实验背景" class="headerlink" title="4.1 实验背景"></a>4.1 实验背景</h3><p>直方图统计属于典型的<strong>内存访问密集型任务</strong>。<br> 在多线程并行下，若多个线程同时更新同一 bin，会导致写冲突。</p>
+<hr>
+<h3 id="4-2-算法设计与实现"><a href="#4-2-算法设计与实现" class="headerlink" title="4.2 算法设计与实现"></a>4.2 算法设计与实现</h3><h4 id="串行算法-1"><a href="#串行算法-1" class="headerlink" title="串行算法"></a>串行算法</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">for (i = 0; i &lt; n; i++) &#123;</span><br><span class="line">    int val = (int)array[i];</span><br><span class="line">    if (val == num_bins)</span><br><span class="line">        idx = num_bins - 1;</span><br><span class="line">    else</span><br><span class="line">        idx = val % num_bins;</span><br><span class="line">    bins[idx]++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="并行算法-1"><a href="#并行算法-1" class="headerlink" title="并行算法"></a>并行算法</h4><p>本实验采用 <strong>OpenMP reduction 数组分段机制</strong> (<code>reduction(+:bins[:num_bins])</code>)<br> 来实现线程安全的自动归约。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">void parallel_histogram(float *array, int n, int *bins, int num_bins, int n_threads) &#123;</span><br><span class="line">    for (int i = 0; i &lt; num_bins; i++)</span><br><span class="line">        bins[i] = 0;</span><br><span class="line"></span><br><span class="line">    #pragma omp parallel for num_threads(n_threads) reduction(+:bins[:10])</span><br><span class="line">    for (int i = 0; i &lt; n; i++) &#123;</span><br><span class="line">        int val = (int)array[i];</span><br><span class="line">        int idx = (val == num_bins) ? (num_bins - 1) : (val % num_bins);</span><br><span class="line">        bins[idx]++;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>每个线程拥有局部的 <code>bins</code> 数组副本；</p>
+</li>
+<li><p><code>reduction(+:bins[:10])</code> 自动汇总每个线程的结果；</p>
+</li>
+<li><p>无需手动同步，语义简洁；</p>
+</li>
+</ul>
+<p>OMP如果版本不支持，也可以自己手动创建bins副本，最后汇总，效率一致：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">void parallel_histogram3(float *array, int n, int *bins, int num_bins, int n_threads)</span><br><span class="line">&#123;</span><br><span class="line">    omp_set_num_threads(n_threads);</span><br><span class="line">    for (int i = 0; i &lt; num_bins; i++)</span><br><span class="line">        bins[i] = 0;</span><br><span class="line"></span><br><span class="line">    #pragma omp parallel</span><br><span class="line">    &#123;</span><br><span class="line">        int tid = omp_get_thread_num();</span><br><span class="line">        int nthreads = omp_get_num_threads();</span><br><span class="line">        int chunk = (n + nthreads - 1) / nthreads;</span><br><span class="line">        int start = tid * chunk;</span><br><span class="line">        int end = (start + chunk &gt; n) ? n : (start + chunk);</span><br><span class="line"></span><br><span class="line">        // 栈上局部 bins（不分配 heap）</span><br><span class="line">        int local_bins[64] = &#123;0&#125;;  // 根据num_bins设置 </span><br><span class="line"></span><br><span class="line">        for (int i = start; i &lt; end; i++) &#123;</span><br><span class="line">            int val = (int)array[i];</span><br><span class="line">            int idx = (val == num_bins) ? (num_bins - 1) : (val % num_bins);</span><br><span class="line">            local_bins[idx]++;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        // 并行安全汇总</span><br><span class="line">        for (int j = 0; j &lt; num_bins; j++) &#123;</span><br><span class="line">            #pragma omp atomic</span><br><span class="line">            bins[j] += local_bins[j];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>将数组平均划分给多个线程；</li>
+<li>每个线程维护独立的局部 <code>local_bins</code>；</li>
+<li>最后进行全局累加；</li>
+<li>避免全局写冲突，提升可扩展性。</li>
+</ul>
+<hr>
+<h3 id="4-3-实验结果与分析"><a href="#4-3-实验结果与分析" class="headerlink" title="4.3 实验结果与分析"></a>4.3 实验结果与分析</h3><h4 id="（1）运行时间-vs-线程数-1"><a href="#（1）运行时间-vs-线程数-1" class="headerlink" title="（1）运行时间 vs 线程数"></a>（1）运行时间 vs 线程数</h4><p><img src="/2025/10/16/parellel_report1/Users\25490\Desktop\blog\source_posts\parellel_report1\hist_time.png" alt="image-20251016165709168"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h4 id="（2）加速比-vs-线程数（基准为-1-线程）-1"><a href="#（2）加速比-vs-线程数（基准为-1-线程）-1" class="headerlink" title="（2）加速比 vs 线程数（基准为 1 线程）"></a>（2）加速比 vs 线程数（基准为 1 线程）</h4><p><img src="/2025/10/16/parellel_report1/Users\25490\Desktop\blog\source_posts\parellel_report1\hist_speedup.png" alt="image-20251016165919593"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h4 id="（3）结果表格"><a href="#（3）结果表格" class="headerlink" title="（3）结果表格"></a>（3）结果表格</h4><p><img src="/2025/10/16/parellel_report1/Users\25490\Desktop\blog\source_posts\parellel_report1\hist_table.png" alt="image-20251016170022967"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<hr>
+<h3 id="4-4-结果分析"><a href="#4-4-结果分析" class="headerlink" title="4.4 结果分析"></a>4.4 结果分析</h3><ul>
+<li>n越大，并行优势明显，较小时会受到线程创建等并行开销的影响；</li>
+<li>瓶颈在于对bins的写入，每个线程创建局部 bins 的使用有效减少写冲突。</li>
+</ul>
+<hr>
+<h2 id="五、实验总结"><a href="#五、实验总结" class="headerlink" title="五、实验总结"></a>五、实验总结</h2><ul>
+<li><p><strong>数据量影响显著</strong>：任务耗时较小时，并行带来的开销有可能得不偿失，在任务耗时较大时启用多线程加速明显，有可能逼近线性加速；</p>
+</li>
+<li><p><strong>优化要点</strong>：</p>
+<ol>
+<li>合理划分任务负载，明确是计算密集还是访存密集；</li>
+<li>尽量减少共享写，可创建副本用空间换时间，合理使用局部缓冲区与 reduction；</li>
+</ol>
+</li>
+<li><p><strong>实验总体结论</strong>：</p>
+<blockquote>
+<p>OpenMP 能有效提升多核并行性能，但需要注意并行引入的创建线程等开销对效率的影响。<br> 不同任务类型的瓶颈来源不同，需要合理分析，采取对应测量加速。</p>
+</blockquote>
+</li>
+</ul>
+<hr>
+<h2 id="附录"><a href="#附录" class="headerlink" title="附录"></a>附录</h2><h3 id="文件说明"><a href="#文件说明" class="headerlink" title="文件说明"></a>文件说明</h3><figure class="highlight csharp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line">PA1/</span><br><span class="line"> ├── hist.c                         <span class="meta"># 直方图串行版本</span></span><br><span class="line"> ├── omp_hist.c                     <span class="meta"># 直方图并行版本</span></span><br><span class="line"> ├── matrix.c                       <span class="meta"># 矩阵乘法串行版本</span></span><br><span class="line"> ├── omp_matrix.c                   <span class="meta"># 矩阵乘法并行版本</span></span><br><span class="line"> │</span><br><span class="line"> ├── hist.<span class="keyword">out</span>                       <span class="meta"># 编译得到的直方图串行可执行文件</span></span><br><span class="line"> ├── omp_hist.<span class="keyword">out</span>                   <span class="meta"># 编译得到的直方图并行可执行文件</span></span><br><span class="line"> ├── matrix.<span class="keyword">out</span>                     <span class="meta"># 编译得到的矩阵乘法串行可执行文件</span></span><br><span class="line"> ├── omp_matrix.<span class="keyword">out</span>                 <span class="meta"># 编译得到的矩阵乘法并行可执行文件</span></span><br><span class="line"> │</span><br><span class="line"> ├── hist.sh                        <span class="meta"># 编译运行直方图串行/并行程序的脚本</span></span><br><span class="line"> ├── matrix.sh                      <span class="meta"># 编译运行矩阵乘法串行/并行程序的脚本</span></span><br><span class="line"> │</span><br><span class="line"> ├── report/</span><br><span class="line"> │   ├── images/                    <span class="meta"># 实验结果图像目录</span></span><br><span class="line"> │   │    ├── hist_time_vs_threads.png</span><br><span class="line"> │   │    ├── hist_speedup_vs_threads.png</span><br><span class="line">     	  ├── hist_results_table.png</span><br><span class="line"> │   │    ├── matrix_time_vs_threads.png</span><br><span class="line"> │   │    ├── matrix_speedup_vs_threads.png</span><br><span class="line"> │   │    └── matrix_results_table.png</span><br><span class="line"> │   │</span><br><span class="line"> │   ├── hist_results.csv               <span class="meta"># 直方图实验原始数据</span></span><br><span class="line"> │   ├── hist_results_with_speedup.csv  <span class="meta"># 含加速比的直方图数据</span></span><br><span class="line"> │   ├── matrix_results.csv             <span class="meta"># 矩阵乘法实验原始数据</span></span><br><span class="line"> │   ├── matrix_results_with_speedup.csv<span class="meta"># 含加速比的矩阵乘法数据</span></span><br><span class="line"> │   │</span><br><span class="line"> │   ├── histogram_benchmark.c          <span class="meta"># 直方图主实验程序</span></span><br><span class="line"> │   ├── histogram_benchmark            <span class="meta"># 编译生成的直方图可执行文件</span></span><br><span class="line"> │   ├── histogram_benchmark.sh         <span class="meta"># 直方图自动化运行脚本</span></span><br><span class="line"> │   │</span><br><span class="line"> │   ├── matrix_benchmark.c             <span class="meta"># 矩阵乘法主实验程序</span></span><br><span class="line"> │   ├── matrix_benchmark               <span class="meta"># 编译生成的矩阵乘法可执行文件</span></span><br><span class="line"> │   ├── matrix_benchmark.sh            <span class="meta"># 矩阵乘法自动化运行脚本</span></span><br><span class="line"> │   │</span><br><span class="line"> │   ├── plot_histogram_perf_avg.py     <span class="meta"># 绘制直方图性能曲线</span></span><br><span class="line"> │   ├── plot_matrix_perf_avg.py        <span class="meta"># 绘制矩阵乘法性能曲线</span></span><br><span class="line"> │   │</span><br><span class="line"> │   ├── test_matmul_correctness.c      <span class="meta"># 验证矩阵乘法正确性的程序</span></span><br><span class="line"> │   ├── test_matmul_correctness        <span class="meta"># 其编译可执行文件</span></span><br><span class="line"> │   │</span><br><span class="line"> │   └── README.md （可选）            <span class="meta"># 实验简要说明</span></span><br><span class="line"> │</span><br><span class="line"> </span><br></pre></td></tr></table></figure>
+</article>
+    
+    
+
+</div>
+<div class="trm-post-next-prev row">
+    <div class="col-lg-12">
+        <!-- title -->
+        <h5 class="trm-title-with-divider">
+            其他文章
+            <span data-number="02"></span>
+        </h5>
+    </div>
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/10/20/solve-extra-overhead/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/RLHF/">
+                    RLHF
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/10/20/solve-extra-overhead/" class="trm-anima-link">
+                    solve_extra_overhead
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/10/20</li>
+                <li>13:55</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/10/13/multi-process-ov/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="https://www.logosc.cn/uploads/resources/2018/11/29/1543459457_thumb.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" /categories/RLHF/">
+                    RLHF
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/10/13/multi-process-ov/" class="trm-anima-link">
+                    multi_process_ov
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/10/13</li>
+                <li>19:45</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+</div>
+
+    
+
+
+
+                    <div class="trm-divider footer-divider"></div>
+
+                    <!-- footer -->
+                    <footer class="trm-footer-card trm-scroll-animation">
+
+    
+
+    
+
+    
+        <div class="trm-footer-item">
+            <span>
+                由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 v7.3.0
+            </span>
+            <span class="footer-separator" data-separator=" | "></span>
+            <span> 
+                主题 - 
+                <a rel="noopener" href='https://github.com/MaLuns/hexo-theme-async' target='_blank'>Async</a>
+                v2.2.6
+            </span>
+        </div>
+      
+
+     
+
+     
+</footer>
+                    <!-- footer end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <!-- body end -->
+
+            
+
+            
+<div class="trm-fixed-container">
+    
+    
+        <div class="trm-fixed-btn" data-title="阅读模式" onclick="asyncFun.switchReadMode()">
+            <i class="iconfont fas fa-book-reader"></i>
+        </div>
+    
+    
+    <div id="trm-back-top" class="trm-fixed-btn" data-title="回到顶部">
+        <i class="iconfont fas fa-arrow-up"></i>
+    </div>
+</div>
+        </div>
+      </div>
+      <!-- scroll container end -->
+  </div>
+  <!-- app wrapper end -->
+
+  
+  <!-- Plugin -->
+
+
+
+
+    
+    
+<script src="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+    
+
+    
+
+    
+
+    <!-- 数学公式 -->
+    
+
+    <!-- 评论插件 -->
+    
+        
+
+        
+    
+
+		
+
+
+
+
+    <!-- Service Worker -->
+    
+    <!-- baidu push -->
+    
+
+
+<script id="async-script" src="/js/main.js?v=2.2.6"></script>
+
+<!-- CDN -->
+
+
+    
+
+    
+
+    
+
+
+
+</body>
+
+</html>

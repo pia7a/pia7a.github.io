@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="x5-fullscreen" content="true">
+<meta name="full-screen" content="yes">
+<meta name="theme-color" content="#317EFB" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
+<meta name="description" content="🎓 并行程序设计实验报告—— MPI 矩阵乘法与环形 Allreduce 性能分析 一、实验基本信息   项目 内容    实验课程 COMP 4007: Parallel Processing and Computer Architecture   实验名称 Programming Assignment 2（MPI 部分）   学生姓名 谭志强   学号 25B951103   学院 计算机科">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hexo">
+<meta property="og:url" content="http://example.com/2025/11/10/parellel-report3/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="🎓 并行程序设计实验报告—— MPI 矩阵乘法与环形 Allreduce 性能分析 一、实验基本信息   项目 内容    实验课程 COMP 4007: Parallel Processing and Computer Architecture   实验名称 Programming Assignment 2（MPI 部分）   学生姓名 谭志强   学号 25B951103   学院 计算机科">
+<meta property="og:locale">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="og:image" content="http://example.com/img/404.jpg">
+<meta property="article:published_time" content="2025-11-10T11:14:53.751Z">
+<meta property="article:modified_time" content="2025-11-17T01:29:46.044Z">
+<meta property="article:author" content="John Doe">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/404.jpg">
+
+
+<title >Hexo</title>
+
+<!-- Favicon -->
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='16x16' ></link>
+
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='32x32' ></link>
+
+
+
+
+<!-- Plugin -->
+
+
+
+
+    
+<link rel="stylesheet" href="/css/plugins/bootstrap.row.css">
+
+    
+<link rel="stylesheet" href="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.css">
+
+    
+    
+
+
+
+
+<!-- Icon -->
+
+    
+<link rel="stylesheet" href="/css/plugins/font-awesome.min.css">
+
+
+
+
+<!-- Variable -->
+<script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-11-17 09:29:46"};</script>
+
+<!-- Theme mode css -->
+<link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
+<script>
+    let defaultMode = ASYNC_CONFIG.theme.default !=='auto' ?  ASYNC_CONFIG.theme.default : (window.matchMedia("(prefers-color-scheme: light)").matches ? 'style-light' : 'style-dark')
+    let catchMode = localStorage.getItem('theme-mode') || defaultMode;
+    let type = catchMode === 'style-dark' ? 'add' : 'remove';
+    document.documentElement.classList[type]('dark')
+</script>
+
+<!-- CDN -->
+
+
+    
+    
+
+
+
+<!-- Site Analytics -->
+
+ 
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+
+  <!-- app wrapper -->
+  <div class="trm-app-frame">
+
+    <!-- page preloader -->
+    <div class="trm-preloader">
+    <div class="trm-holder">
+        <div class="preloader">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+</div>
+    <!-- page preloader end -->
+
+    <!-- change mode preloader -->
+    <div class="trm-mode-swich-animation-frame">
+    <div class="trm-mode-swich-animation">
+        <i class="i-sun"><i class="iconfont far fa-sun"></i></i>
+        <div class="trm-horizon"></div>
+        <i class="i-moon"><i class="iconfont far fa-moon"></i></i>
+    </div>
+</div>
+    <!-- change mode preloader end -->
+
+      <!-- scroll container -->
+      <div id="trm-dynamic-content" class="trm-swup-animation">
+        <div id="trm-scroll-container" class="trm-scroll-container" style="opacity: 0">
+            <!-- top bar -->
+            <header class="trm-top-bar">
+	<div class="container">
+		<div class="trm-left-side">
+			<!-- logo -->
+<a href="/" class="trm-logo-frame trm-anima-link">
+    
+        <img alt="logo" src="/img/favicon.svg">
+    
+    
+        <div class="trm-logo-text">
+            Async<span>zhiqiang</span>
+        </div>
+    
+</a>
+<!-- logo end -->
+		</div>
+		<div class="trm-right-side">
+			<!-- menu -->
+<div class="trm-menu">
+    <nav>
+        <ul>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/" target="">
+                    首页
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/archives/" target="">
+                    时间线
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/tags/" target="">
+                    标签
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/categories" target="">
+                    分类
+                </a>
+                
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+<!-- menu end -->
+			
+    <!-- mode switcher place -->
+    <div class="trm-mode-switcher-place">
+        <div class="trm-mode-switcher">
+            <i class="iconfont far fa-sun"></i>
+            <input class="tgl tgl-light" id="trm-swich" type="checkbox">
+            <label class="trm-swich" for="trm-swich"></label>
+            <i class="iconfont far fa-moon"></i>
+        </div>
+    </div>
+    <!-- mode switcher place end -->
+
+			
+		</div>
+		<div class="trm-menu-btn">
+			<span></span>
+		</div>
+	</div>
+</header>
+            <!-- top bar end -->
+
+            <!-- body -->
+            
+<div class="trm-content-start">
+    <!-- banner -->
+    <div class="trm-banner">
+    
+    <!-- banner cover -->
+    <img style="object-position:top;object-fit:cover;" alt="banner" class="trm-banner-cover" src="/img/banner.png">
+    <!-- banner cover end -->
+    
+
+    <!-- banner content -->
+    <div class="trm-banner-content trm-overlay">
+        <div class="container">
+            <div class="row">
+                
+                <div class="col-lg-4"></div>
+                
+                <div class="col-lg-8">
+
+                    <!-- banner title -->
+                    <div class="trm-banner-text ">
+                        <div class="trm-label trm-mb-20">
+                            NEWS LETTER
+                        </div>
+                        <h1 class="trm-mb-30 trm-hsmb-font">
+                            
+                        </h1>
+
+                        
+                            <ul class="trm-breadcrumbs trm-label">
+                                <li>
+                                    <a href="/" class="trm-anima-link">Home</a>
+                                </li>
+                                <li>
+                                    <span>
+                                        2025
+                                    </span>
+                                </li>
+                            </ul>
+                        
+                    </div>
+                    <!-- banner title end -->
+
+                    <!-- scroll hint -->
+                    <span id="scroll-triger" class="trm-scroll-hint-frame">
+                        <div class="trm-scroll-hint"></div>
+                        <span class="trm-label">Scroll down</span>
+                    </span>
+                    <!-- scroll hint end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- banner content end -->
+</div>
+    <!-- banner end -->
+    <div class="container">
+        <div class="row">
+            
+                <div class="trm-page-sidebar col-lg-4 hidden-sm">
+                    <!-- main card -->
+                    <div class="trm-main-card-frame trm-sidebar">
+    <div class="trm-main-card"> 
+        <!-- card header -->
+<div class="trm-mc-header">
+    <div class="trm-avatar-frame trm-mb-20">
+        <img alt="Avatar" class="trm-avatar" src="/img/avatar.jpg">
+    </div>
+    <h5 class="trm-name trm-mb-15">
+        看雪
+    </h5>
+    
+</div>
+<!-- card header end -->
+        <!-- sidebar social -->
+
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<div class="trm-social">
+    
+        <a href="https://github.com" title="Github" rel="nofollow" target="_blank">
+            <i class="iconfont fab fa-github"></i>
+        </a>
+    
+</div>
+
+<!-- sidebar social end -->
+        <!-- info -->
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<ul class="trm-table trm-mb-20">
+    
+        <li>
+            <div class="trm-label">
+                Residence:
+            </div>
+            <div class="trm-label trm-label-light">
+                Mars
+            </div>
+        </li>
+    
+</ul>
+<!-- info end -->
+
+        
+    </div>
+</div>
+                    <!-- main card end -->
+                </div>
+            
+            <div class="trm-page-content col-lg-8">
+                <div id="trm-content" class="trm-content">
+                    <div class="trm-post-info row hidden-sm">
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-calendar-alt trm-icon"></i><br>
+            11/10
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-clock trm-icon"></i><br>
+            19:14
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div id="post-author" class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-user trm-icon"></i><br>
+            John Doe
+        </div>
+    </div>
+</div>
+<div class="trm-card ">
+    <article id="article-container" class="trm-publication">
+    <h1 id="🎓-并行程序设计实验报告"><a href="#🎓-并行程序设计实验报告" class="headerlink" title="🎓 并行程序设计实验报告"></a>🎓 并行程序设计实验报告</h1><h2 id="——-MPI-矩阵乘法与环形-Allreduce-性能分析"><a href="#——-MPI-矩阵乘法与环形-Allreduce-性能分析" class="headerlink" title="—— MPI 矩阵乘法与环形 Allreduce 性能分析"></a>—— MPI 矩阵乘法与环形 Allreduce 性能分析</h2><hr>
+<h2 id="一、实验基本信息"><a href="#一、实验基本信息" class="headerlink" title="一、实验基本信息"></a>一、实验基本信息</h2><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>实验课程</td>
+<td>COMP 4007: Parallel Processing and Computer Architecture</td>
+</tr>
+<tr>
+<td>实验名称</td>
+<td>Programming Assignment 2（MPI 部分）</td>
+</tr>
+<tr>
+<td>学生姓名</td>
+<td>谭志强</td>
+</tr>
+<tr>
+<td>学号</td>
+<td>25B951103</td>
+</tr>
+<tr>
+<td>学院</td>
+<td>计算机科学与技术学院</td>
+</tr>
+<tr>
+<td>专业</td>
+<td>电子信息</td>
+</tr>
+<tr>
+<td>实验日期</td>
+<td>2025 年 11 月 10 日</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="二、实验目的"><a href="#二、实验目的" class="headerlink" title="二、实验目的"></a>二、实验目的</h2><ul>
+<li>掌握 <strong>MPI 编程模型</strong> 的基本用法；</li>
+<li>理解 <strong>进程间通信（point-to-point &#x2F; collective）</strong> 的实现机制；</li>
+<li>使用 MPI 对 <strong>矩阵–矩阵乘法</strong> 进行并行化，实现数据划分、广播与结果收集；</li>
+<li>基于点对点通信实现 <strong>环形 Allreduce (RING_Allreduce)</strong>，对比其与 <code>MPI_Allreduce</code> 的性能与正确性；</li>
+</ul>
+<hr>
+<h2 id="三、实验环境与配置"><a href="#三、实验环境与配置" class="headerlink" title="三、实验环境与配置"></a>三、实验环境与配置</h2><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>操作系统</td>
+<td>Ubuntu 22.04 LTS</td>
+</tr>
+<tr>
+<td>编译器</td>
+<td><code>mpicc</code>  + <code>gcc</code> 11.4.0</td>
+</tr>
+<tr>
+<td>MPI 版本</td>
+<td>OpenMPI(3.0.0)</td>
+</tr>
+<tr>
+<td>CPU 型号</td>
+<td>Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz</td>
+</tr>
+<tr>
+<td>内存</td>
+<td>32 GB</td>
+</tr>
+<tr>
+<td>节点与进程</td>
+<td>单节点环境，使用多进程（4 个 MPI 进程）</td>
+</tr>
+<tr>
+<td>计时方式</td>
+<td><code>MPI_Wtime()</code>（毫秒级）</td>
+</tr>
+<tr>
+<td>数据类型</td>
+<td><code>double</code> 浮点数</td>
+</tr>
+</tbody></table>
+<p><strong>测量原则：</strong></p>
+<ul>
+<li>每个测试规模：<ul>
+<li>预热（warm-up）若干次；</li>
+<li>正式运行多轮取平均时间；</li>
+</ul>
+</li>
+<li>MPI 时间使用 <strong>所有进程耗时的最大值</strong> 作为该轮实验时间；</li>
+<li>加速比定义：$\text{Speedup} &#x3D; T_{\text{CPU}} &#x2F; T_{\text{MPI}}$。</li>
+</ul>
+<hr>
+<h2 id="四、Problem-1：MPI-并行矩阵–矩阵乘法"><a href="#四、Problem-1：MPI-并行矩阵–矩阵乘法" class="headerlink" title="四、Problem 1：MPI 并行矩阵–矩阵乘法"></a>四、Problem 1：MPI 并行矩阵–矩阵乘法</h2><h3 id="4-1-问题描述"><a href="#4-1-问题描述" class="headerlink" title="4.1 问题描述"></a>4.1 问题描述</h3><p>给定：</p>
+<ul>
+<li><p>矩阵 $A$：维度 $m \times k$；</p>
+</li>
+<li><p>矩阵 $B$：维度 $k \times n$；</p>
+</li>
+<li><p>输出矩阵 $C$：维度 $m \times n$，其中：<br>$$<br>C_{ij} &#x3D; \sum_{t&#x3D;0}^{k-1} A_{it} B_{tj}<br>$$</p>
+</li>
+</ul>
+<p>要求：</p>
+<ol>
+<li>从 <code>input1.txt</code> 中读取 $m,k,n$（格式 <code>&quot;8,16,32&quot;</code>）；</li>
+<li>随机初始化 $A,B$；</li>
+<li>在单进程上执行串行矩阵乘法并测时；</li>
+<li>使用 MPI 并行矩阵乘法并测时；</li>
+<li>校验串行结果与 MPI 结果是否一致；</li>
+<li>将 CPU 时间 T1 与 MPI 时间 T2 输出至 <code>output1.txt</code>（格式 <code>&quot;1.23,2.34&quot;</code>）。</li>
+</ol>
+<p>实际实现中，同时编写了扩展版本对多组矩阵规模进行基准测试，并输出为 CSV 便于绘图分析。</p>
+<hr>
+<h3 id="4-2-串行算法"><a href="#4-2-串行算法" class="headerlink" title="4.2 串行算法"></a>4.2 串行算法</h3><p>串行实现采用三重循环：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">void matmul(const double *A, const double *B, double *C,</span><br><span class="line">            int m, int k, int n)</span><br><span class="line">&#123;</span><br><span class="line">    for (int i = 0; i &lt; m; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        for (int j = 0; j &lt; n; j++)</span><br><span class="line">        &#123;</span><br><span class="line">            double sum = 0.0;</span><br><span class="line">            for (int t = 0; t &lt; k; t++)</span><br><span class="line">                sum += A[i * k + t] * B[t * n + j];</span><br><span class="line">            C[i * n + j] = sum;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>仅作为正确性基准和性能对照。</li>
+</ul>
+<hr>
+<h3 id="4-3-MPI-并行算法设计（基于行划分的-Send-Recv）"><a href="#4-3-MPI-并行算法设计（基于行划分的-Send-Recv）" class="headerlink" title="4.3 MPI 并行算法设计（基于行划分的 Send&#x2F;Recv）"></a>4.3 MPI 并行算法设计（基于行划分的 Send&#x2F;Recv）</h3><p>本实验的 MPI 并行矩阵乘法采用 <strong>按行划分矩阵 $A$ +  <code>MPI_Send</code> &#x2F; <code>MPI_Recv</code></strong> 的方式实现，</p>
+<p>整体思路如下：</p>
+<ol>
+<li><p><strong>数据初始化（仅在 <code>rank 0</code> 完成）：</strong></p>
+<ul>
+<li><code>rank 0</code> 从 <code>input1.txt</code> 读取矩阵尺寸 <code>m, k, n</code>；</li>
+<li>在 <code>rank 0</code> 上分配并随机初始化完整矩阵：<ul>
+<li>矩阵 $A$ 大小为 $m \times k$；</li>
+<li>矩阵 $B$ 大小为 $k \times n$；</li>
+</ul>
+</li>
+<li>其他进程初始不持有完整 $A$，仅等待接收子块。</li>
+</ul>
+</li>
+<li><p><strong>尺寸与矩阵 B 分发：</strong></p>
+<ul>
+<li>使用 <code>MPI_Bcast</code> 向所有进程广播 <code>m, k, n</code>；</li>
+<li>各进程据此分配本地缓冲区；</li>
+<li>使用 <code>MPI_Bcast</code> 将完整矩阵 $B$ 从 <code>rank 0</code> 广播到所有进程：<ul>
+<li>每个进程本地保存一份完整的 $B$，后续仅对 $A$ 做行划分与传输。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>按行划分矩阵 A（Block Row Decomposition）：</strong></p>
+<ul>
+<li>令进程总数为 <code>p</code>；</li>
+<li>先计算平均行数：<code>srow = m / p</code>；</li>
+<li>最后一个进程承担剩余行数：<code>srow_last = m - srow * (p - 1)</code>；</li>
+<li>对于rank为 <code>i</code> 的进程：<ul>
+<li>若 <code>i &lt; p - 1</code>，则处理连续的 <code>srow</code> 行；</li>
+<li>若 <code>i == p - 1</code>，则处理最后的 <code>srow_last</code> 行；</li>
+</ul>
+</li>
+<li><strong>实现方式：</strong><ul>
+<li><code>rank 0</code> 通过多次 <code>MPI_Send</code> 将对应的 $A$ 行块发送给其他进程；</li>
+<li>其他进程通过 <code>MPI_Recv</code> 接收自己的子矩阵 <code>A_local</code>。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>本地矩阵乘法计算：</strong></p>
+<ul>
+<li><p>每个进程根据自身拥有的 <code>A_local</code>（维度 <code>local_rows × k</code>）和全局的 <code>B</code>（<code>k × n</code>），调用同一串行内核：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">matmul(A_local, B, C_local, local_rows, k, n);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>得到对应行块的结果矩阵 <code>C_local</code>（<code>local_rows × n</code>）。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>结果回传与拼接：</strong></p>
+<ul>
+<li>非 <code>rank 0</code> 进程使用 <code>MPI_Send</code> 将 <code>C_local</code> 发送回 <code>rank 0</code>；</li>
+<li><code>rank 0</code> 使用 <code>MPI_Recv</code> 按进程顺序接收各段结果：<ul>
+<li>将来自进程 <code>i</code> 的 <code>C_local</code> 写入全局矩阵 $C$ 的对应行区间；</li>
+</ul>
+</li>
+<li>自身负责的前 <code>srow</code> 或 <code>local_rows</code> 行结果则直接写入 $C$ 的起始部分。</li>
+</ul>
+</li>
+<li><p><strong>时间测量策略：</strong></p>
+<ul>
+<li>串行版本：仅在 <code>rank 0</code> 上用单线程执行 <code>matmul(A, B, C_serial)</code>，测得 $T_{\text{CPU}}$；</li>
+<li>MPI 版本：<ul>
+<li>使用 <code>MPI_Barrier</code> 同步所有进程；</li>
+<li>以 <code>MPI_Wtime()</code> 包裹 <strong>发送 A 子块 + 本地计算 + 回收 C 子块</strong> 的完整过程；</li>
+<li>使用 <code>MPI_Reduce</code>（<code>MPI_MAX</code>）在 <code>rank 0</code> 汇总各进程耗时，得到 $T_{\text{MPI}}$（由最慢进程决定）。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h3 id="4-4-实验结果"><a href="#4-4-实验结果" class="headerlink" title="4.4 实验结果"></a>4.4 实验结果</h3><p>使用若干规模的方阵（$m &#x3D; k &#x3D; n$）进行测试：</p>
+<p><img src="/2025/11/10/parellel-report3/Users\25490\Desktop\博士申请\哈工大\mpi_matmul_speedup_dual_axis.png" alt="mpi_matmul_speedup_dual_axis"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<h4 id="（2）结果表格与加速比"><a href="#（2）结果表格与加速比" class="headerlink" title="（2）结果表格与加速比"></a>（2）结果表格与加速比</h4><table>
+<thead>
+<tr>
+<th>m &#x3D; k &#x3D; n</th>
+<th>CPU(ms)</th>
+<th>MPI(ms)</th>
+<th>Speedup &#x3D; CPU &#x2F; MPI</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>32</td>
+<td>0.105</td>
+<td>0.041</td>
+<td>2.56×</td>
+</tr>
+<tr>
+<td>64</td>
+<td>0.855</td>
+<td>0.246</td>
+<td>3.48×</td>
+</tr>
+<tr>
+<td>128</td>
+<td>7.048</td>
+<td>1.856</td>
+<td>3.80×</td>
+</tr>
+<tr>
+<td>256</td>
+<td>57.611</td>
+<td>14.657</td>
+<td>3.93×</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="4-5-分析与讨论"><a href="#4-5-分析与讨论" class="headerlink" title="4.5 分析与讨论"></a>4.5 分析与讨论</h3><ul>
+<li><strong>加速效果稳定接近线性</strong>：在 4 个进程的前提下，加速比约为 2.56×～3.93×，接近理想 4×。</li>
+<li><strong>计算主导时并行更有优势</strong>：<ul>
+<li>尺寸增大时，矩阵乘法的计算复杂度 $O(n^3)$ 快速增长,启动进程的固定开销减少，加速比更接近进程数目（<strong>4</strong>）；</li>
+<li>通信复杂度主要由 $O(n^2)$ 量级的数据分发与收集构成；</li>
+<li>因此在中大规模矩阵上，MPI 并行能获得稳定加速。</li>
+</ul>
+</li>
+<li><strong>小规模下通信开销明显</strong>：<ul>
+<li>当矩阵较小时，<code>Bcast</code> &#x2F; <code>MPI_Send</code> &#x2F; <code>MPI_Recv</code> 等固定开销相对占优, 导致加速比略低于理想值。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2 id="五、Problem-2：Ring-based-Allreduce-实验"><a href="#五、Problem-2：Ring-based-Allreduce-实验" class="headerlink" title="五、Problem 2：Ring-based Allreduce 实验"></a>五、Problem 2：Ring-based Allreduce 实验</h2><h3 id="5-1-问题描述"><a href="#5-1-问题描述" class="headerlink" title="5.1 问题描述"></a>5.1 问题描述</h3><p>实现一个自定义的 <code>RING_Allreduce</code> 函数，要求：</p>
+<ol>
+<li>支持操作：<code>SUM</code> 和 <code>MAX</code>；</li>
+<li>使用 <strong>点对点通信（<code>MPI_Sendrecv</code> 等）</strong> 实现；</li>
+<li>与 <code>MPI_Allreduce</code> 在数值结果上一致；</li>
+<li>对比两者运行时间，并输出到 &#96;output2.txt。</li>
+</ol>
+<hr>
+<h3 id="5-2-算法设计"><a href="#5-2-算法设计" class="headerlink" title="5.2 算法设计"></a>5.2 算法设计</h3><p>自实现的 <code>RING_Allreduce</code> 基于经典 <strong>环形两阶段算法</strong>：</p>
+<ol>
+<li><strong>数据分段：</strong><ul>
+<li>将长度为 <code>n</code> 的数组划分为 <code>P</code> 段（<code>P</code> 为进程数）；</li>
+<li>允许不整除，不整除时，前若干段多 1 个元素。</li>
+</ul>
+</li>
+<li><strong>Phase 1：Reduce-Scatter</strong><ul>
+<li>进行 <code>P - 1</code> 轮；</li>
+<li>每轮：<ul>
+<li>每个进程向右邻居发送一段数据；</li>
+<li>从左邻居接收对应段，并根据 op (SUM &#x2F; MAX) 更新本地结果；</li>
+</ul>
+</li>
+<li>结束后：<ul>
+<li>每个进程持有其中 <strong>一段已完成规约的最终结果</strong>。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Phase 2：Allgather</strong><ul>
+<li>再进行 <code>P - 1</code> 轮；</li>
+<li>各进程在环上依次交换已完成规约的段；</li>
+<li>最终所有进程都拥有完整长度为 <code>n</code> 的 Allreduce 结果。</li>
+</ul>
+</li>
+</ol>
+<p>整个过程仅使用 point-to-point 通信。</p>
+<hr>
+<h3 id="5-3-性能测试与结果"><a href="#5-3-性能测试与结果" class="headerlink" title="5.3 性能测试与结果"></a>5.3 性能测试与结果</h3><p>测试（<code>op = sum</code>）：</p>
+<p><img src="/2025/11/10/parellel-report3/Users\25490\Desktop\博士申请\哈工大\lab3\report\ring_allreduce.png" alt="ring_allreduce"  data-tag='post-image' onload='this.onload=null;this.style.opacity=1;' loading="lazy" onerror='this.onerror=null;this.src="/img/404.jpg"'></p>
+<table>
+<thead>
+<tr>
+<th>n</th>
+<th>op</th>
+<th>MPI_Allreduce(ms)</th>
+<th>RING_Allreduce(ms)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>512</td>
+<td>sum</td>
+<td>0.006</td>
+<td>0.027</td>
+</tr>
+<tr>
+<td>1024</td>
+<td>sum</td>
+<td>0.009</td>
+<td>0.045</td>
+</tr>
+<tr>
+<td>4096</td>
+<td>sum</td>
+<td>0.046</td>
+<td>0.095</td>
+</tr>
+<tr>
+<td>16384</td>
+<td>sum</td>
+<td>0.085</td>
+<td>0.192</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="5-4-结果分析"><a href="#5-4-结果分析" class="headerlink" title="5.4 结果分析"></a>5.4 结果分析</h3><ul>
+<li>在当前测试环境与消息规模下：<ul>
+<li><strong>库内置的 <code>MPI_Allreduce</code> 明显优于手写 <code>RING_Allreduce</code></strong>，因为MPI 实现通常采用拓扑感知、流水化、分层树&#x2F;环等高度优化策略；</li>
+<li>不过，在仅进行单次调用的测试中，由于 <code>MPI_Allreduce</code> 首次调用包含内部初始化和算法选择等一次性开销，而自实现的 <code>RING_Allreduce</code> 较为轻量，因此表面上可能出现 “RING_Allreduce 更快” 的现象。在采用多次调用、预热以及取各进程最大耗时的严格基准测试后，可以看到稳态情况下 <code>MPI_Allreduce</code> 的性能优于手写环形实现。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2 id="六、实验总结"><a href="#六、实验总结" class="headerlink" title="六、实验总结"></a>六、实验总结</h2><ul>
+<li><strong>MPI 并行矩阵乘法</strong>：<ul>
+<li>通过合理的数据划分（按行分块）与 <code>Bcast` / `MPI_Send` / `MPI_Recv</code>，数据量较大时在 4 个进程下获得接近 4× 的加速；</li>
+<li>表明在计算量足够大时，通信开销可以被摊薄，并行效率较高。</li>
+</ul>
+</li>
+<li><strong>自定义 Ring Allreduce</strong>：<ul>
+<li>正确复现了 All reduce 语义，与 <code>MPI_Allreduce</code> 结果一致，但性能略逊于高度优化的 MPI 实现。</li>
+</ul>
+</li>
+</ul>
+
+</article>
+    
+    
+
+</div>
+<div class="trm-post-next-prev row">
+    <div class="col-lg-12">
+        <!-- title -->
+        <h5 class="trm-title-with-divider">
+            其他文章
+            <span data-number="02"></span>
+        </h5>
+    </div>
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/11/14/R3-try/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="/img/block.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" #.">
+                    未分类
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/11/14/R3-try/" class="trm-anima-link">
+                    R3_try
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/11/14</li>
+                <li>10:57</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/11/04/parellel-report2/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="/img/block.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" #.">
+                    未分类
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/11/04/parellel-report2/" class="trm-anima-link">
+                    
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/11/04</li>
+                <li>21:16</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+</div>
+
+    
+
+
+
+                    <div class="trm-divider footer-divider"></div>
+
+                    <!-- footer -->
+                    <footer class="trm-footer-card trm-scroll-animation">
+
+    
+
+    
+
+    
+        <div class="trm-footer-item">
+            <span>
+                由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 v7.3.0
+            </span>
+            <span class="footer-separator" data-separator=" | "></span>
+            <span> 
+                主题 - 
+                <a rel="noopener" href='https://github.com/MaLuns/hexo-theme-async' target='_blank'>Async</a>
+                v2.2.6
+            </span>
+        </div>
+      
+
+     
+
+     
+</footer>
+                    <!-- footer end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <!-- body end -->
+
+            
+
+            
+<div class="trm-fixed-container">
+    
+    
+        <div class="trm-fixed-btn" data-title="阅读模式" onclick="asyncFun.switchReadMode()">
+            <i class="iconfont fas fa-book-reader"></i>
+        </div>
+    
+    
+    <div id="trm-back-top" class="trm-fixed-btn" data-title="回到顶部">
+        <i class="iconfont fas fa-arrow-up"></i>
+    </div>
+</div>
+        </div>
+      </div>
+      <!-- scroll container end -->
+  </div>
+  <!-- app wrapper end -->
+
+  
+  <!-- Plugin -->
+
+
+
+
+    
+    
+<script src="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+    
+
+    
+
+    
+
+    <!-- 数学公式 -->
+    
+
+    <!-- 评论插件 -->
+    
+        
+
+        
+    
+
+		
+
+
+
+
+    <!-- Service Worker -->
+    
+    <!-- baidu push -->
+    
+
+
+<script id="async-script" src="/js/main.js?v=2.2.6"></script>
+
+<!-- CDN -->
+
+
+    
+
+    
+
+    
+
+
+
+</body>
+
+</html>

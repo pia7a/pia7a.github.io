@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="x5-fullscreen" content="true">
+<meta name="full-screen" content="yes">
+<meta name="theme-color" content="#317EFB" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=0" name="viewport">
+<meta name="description" content="🎓 并行程序设计实验报告（PA4）—— MPI + CUDA 加速 GF(2) 矩阵迭代运算 一、实验基本信息   项目 内容    实验课程 COMP 4007: Parallel Processing and Computer Architecture   实验名称 Programming Assignment 4   学生姓名 谭志强   学号 25B951103   学院 计算机科学与技">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hexo">
+<meta property="og:url" content="http://example.com/2025/11/16/parellel-report4/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="🎓 并行程序设计实验报告（PA4）—— MPI + CUDA 加速 GF(2) 矩阵迭代运算 一、实验基本信息   项目 内容    实验课程 COMP 4007: Parallel Processing and Computer Architecture   实验名称 Programming Assignment 4   学生姓名 谭志强   学号 25B951103   学院 计算机科学与技">
+<meta property="og:locale">
+<meta property="article:published_time" content="2025-11-16T07:08:28.456Z">
+<meta property="article:modified_time" content="2025-11-18T03:18:44.682Z">
+<meta property="article:author" content="John Doe">
+<meta name="twitter:card" content="summary">
+
+
+<title >Hexo</title>
+
+<!-- Favicon -->
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='16x16' ></link>
+
+
+    <link href='/img/favicon.svg?v=2.2.6' rel='icon' type='image/png' sizes='32x32' ></link>
+
+
+
+
+<!-- Plugin -->
+
+
+
+
+    
+<link rel="stylesheet" href="/css/plugins/bootstrap.row.css">
+
+    
+<link rel="stylesheet" href="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.css">
+
+    
+    
+
+
+
+
+<!-- Icon -->
+
+    
+<link rel="stylesheet" href="/css/plugins/font-awesome.min.css">
+
+
+
+
+<!-- Variable -->
+<script>window.ASYNC_CONFIG = {"hostname":"example.com","author":"John Doe","root":"/","typed_text":null,"theme_version":"2.2.6","theme":{"switch":true,"default":"style-light"},"favicon":{"logo":"/img/favicon.svg","icon16":"/img/favicon.svg","icon32":"/img/favicon.svg","apple_touch_icon":null,"webmanifest":null,"visibilitychange":false,"hidden":"/failure.ico","show_text":"(/≧▽≦/)咦！又好了！","hide_text":"(●—●)喔哟，崩溃啦！"},"i18n":{"placeholder":"搜索文章...","empty":"找不到您查询的内容: ${query}","hits":"找到 ${hits} 条结果","hits_time":"找到 ${hits} 条结果（用时 ${time} 毫秒）","author":"本文作者：","copyright_link":"本文链接：","copyright_license_title":"版权声明：","copyright_license_content":"本博客所有文章除特别声明外，均默认采用 undefined 许可协议。","copy_success":"复制成功","copy_failure":"复制失败","open_read_mode":"进入阅读模式","exit_read_mode":"退出阅读模式","notice_outdate_message":"距离上次更新已经 undefined 天了, 文章内容可能已经过时。","sticky":"置顶","just":"刚刚","min":"分钟前","hour":"小时前","day":"天前","month":"个月前"},"swup":false,"plugin":{"flickr_justified_gallery":"https://unpkg.com/flickr-justified-gallery@latest/dist/fjGallery.min.js"},"icons":{"sun":"far fa-sun","moon":"far fa-moon","play":"fas fa-play","email":"far fa-envelope","next":"fas fa-arrow-right","calendar":"far fa-calendar-alt","clock":"far fa-clock","user":"far fa-user","back_top":"fas fa-arrow-up","close":"fas fa-times","search":"fas fa-search","reward":"fas fa-hand-holding-usd","toc_tag":"fas fa-th-list","read":"fas fa-book-reader","arrows":"fas fa-arrows-alt-h","double_arrows":"fas fa-angle-double-down","copy":"fas fa-copy"},"icontype":"font","highlight":{"plugin":"highlighjs","theme":true,"copy":true,"lang":true,"title":"default","height_limit":false},"toc":{"post_title":true},"live_time":{"start_time":"","prefix":"博客已萌萌哒运行 undefined 天"},"danmu":{"enable":false,"el":".trm-banner"}};</script>
+<script id="async-page-config">window.PAGE_CONFIG = {"isPost":true,"isHome":false,"postUpdate":"2025-11-18 11:18:44"};</script>
+
+<!-- Theme mode css -->
+<link data-swup-theme rel="stylesheet" href="/css/index.css?v=2.2.6" id="trm-switch-style">
+<script>
+    let defaultMode = ASYNC_CONFIG.theme.default !=='auto' ?  ASYNC_CONFIG.theme.default : (window.matchMedia("(prefers-color-scheme: light)").matches ? 'style-light' : 'style-dark')
+    let catchMode = localStorage.getItem('theme-mode') || defaultMode;
+    let type = catchMode === 'style-dark' ? 'add' : 'remove';
+    document.documentElement.classList[type]('dark')
+</script>
+
+<!-- CDN -->
+
+
+    
+    
+
+
+
+<!-- Site Analytics -->
+
+ 
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+
+  <!-- app wrapper -->
+  <div class="trm-app-frame">
+
+    <!-- page preloader -->
+    <div class="trm-preloader">
+    <div class="trm-holder">
+        <div class="preloader">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+</div>
+    <!-- page preloader end -->
+
+    <!-- change mode preloader -->
+    <div class="trm-mode-swich-animation-frame">
+    <div class="trm-mode-swich-animation">
+        <i class="i-sun"><i class="iconfont far fa-sun"></i></i>
+        <div class="trm-horizon"></div>
+        <i class="i-moon"><i class="iconfont far fa-moon"></i></i>
+    </div>
+</div>
+    <!-- change mode preloader end -->
+
+      <!-- scroll container -->
+      <div id="trm-dynamic-content" class="trm-swup-animation">
+        <div id="trm-scroll-container" class="trm-scroll-container" style="opacity: 0">
+            <!-- top bar -->
+            <header class="trm-top-bar">
+	<div class="container">
+		<div class="trm-left-side">
+			<!-- logo -->
+<a href="/" class="trm-logo-frame trm-anima-link">
+    
+        <img alt="logo" src="/img/favicon.svg">
+    
+    
+        <div class="trm-logo-text">
+            Async<span>zhiqiang</span>
+        </div>
+    
+</a>
+<!-- logo end -->
+		</div>
+		<div class="trm-right-side">
+			<!-- menu -->
+<div class="trm-menu">
+    <nav>
+        <ul>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/" target="">
+                    首页
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/archives/" target="">
+                    时间线
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/tags/" target="">
+                    标签
+                </a>
+                
+            </li>
+            
+            <li class="menu-item-has-children ">
+                <a  href="/categories" target="">
+                    分类
+                </a>
+                
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+<!-- menu end -->
+			
+    <!-- mode switcher place -->
+    <div class="trm-mode-switcher-place">
+        <div class="trm-mode-switcher">
+            <i class="iconfont far fa-sun"></i>
+            <input class="tgl tgl-light" id="trm-swich" type="checkbox">
+            <label class="trm-swich" for="trm-swich"></label>
+            <i class="iconfont far fa-moon"></i>
+        </div>
+    </div>
+    <!-- mode switcher place end -->
+
+			
+		</div>
+		<div class="trm-menu-btn">
+			<span></span>
+		</div>
+	</div>
+</header>
+            <!-- top bar end -->
+
+            <!-- body -->
+            
+<div class="trm-content-start">
+    <!-- banner -->
+    <div class="trm-banner">
+    
+    <!-- banner cover -->
+    <img style="object-position:top;object-fit:cover;" alt="banner" class="trm-banner-cover" src="/img/banner.png">
+    <!-- banner cover end -->
+    
+
+    <!-- banner content -->
+    <div class="trm-banner-content trm-overlay">
+        <div class="container">
+            <div class="row">
+                
+                <div class="col-lg-4"></div>
+                
+                <div class="col-lg-8">
+
+                    <!-- banner title -->
+                    <div class="trm-banner-text ">
+                        <div class="trm-label trm-mb-20">
+                            NEWS LETTER
+                        </div>
+                        <h1 class="trm-mb-30 trm-hsmb-font">
+                            
+                        </h1>
+
+                        
+                            <ul class="trm-breadcrumbs trm-label">
+                                <li>
+                                    <a href="/" class="trm-anima-link">Home</a>
+                                </li>
+                                <li>
+                                    <span>
+                                        2025
+                                    </span>
+                                </li>
+                            </ul>
+                        
+                    </div>
+                    <!-- banner title end -->
+
+                    <!-- scroll hint -->
+                    <span id="scroll-triger" class="trm-scroll-hint-frame">
+                        <div class="trm-scroll-hint"></div>
+                        <span class="trm-label">Scroll down</span>
+                    </span>
+                    <!-- scroll hint end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- banner content end -->
+</div>
+    <!-- banner end -->
+    <div class="container">
+        <div class="row">
+            
+                <div class="trm-page-sidebar col-lg-4 hidden-sm">
+                    <!-- main card -->
+                    <div class="trm-main-card-frame trm-sidebar">
+    <div class="trm-main-card"> 
+        <!-- card header -->
+<div class="trm-mc-header">
+    <div class="trm-avatar-frame trm-mb-20">
+        <img alt="Avatar" class="trm-avatar" src="/img/avatar.jpg">
+    </div>
+    <h5 class="trm-name trm-mb-15">
+        看雪
+    </h5>
+    
+</div>
+<!-- card header end -->
+        <!-- sidebar social -->
+
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<div class="trm-social">
+    
+        <a href="https://github.com" title="Github" rel="nofollow" target="_blank">
+            <i class="iconfont fab fa-github"></i>
+        </a>
+    
+</div>
+
+<!-- sidebar social end -->
+        <!-- info -->
+<div class="trm-divider trm-mb-40 trm-mt-40"></div>
+<ul class="trm-table trm-mb-20">
+    
+        <li>
+            <div class="trm-label">
+                Residence:
+            </div>
+            <div class="trm-label trm-label-light">
+                Mars
+            </div>
+        </li>
+    
+</ul>
+<!-- info end -->
+
+        
+    </div>
+</div>
+                    <!-- main card end -->
+                </div>
+            
+            <div class="trm-page-content col-lg-8">
+                <div id="trm-content" class="trm-content">
+                    <div class="trm-post-info row hidden-sm">
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-calendar-alt trm-icon"></i><br>
+            11/16
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-clock trm-icon"></i><br>
+            15:08
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div id="post-author" class="trm-card trm-label trm-label-light text-center">
+            <i class="iconfont far fa-user trm-icon"></i><br>
+            John Doe
+        </div>
+    </div>
+</div>
+<div class="trm-card ">
+    <article id="article-container" class="trm-publication">
+    <h1 id="🎓-并行程序设计实验报告（PA4）"><a href="#🎓-并行程序设计实验报告（PA4）" class="headerlink" title="🎓 并行程序设计实验报告（PA4）"></a>🎓 并行程序设计实验报告（PA4）</h1><h2 id="——-MPI-CUDA-加速-GF-2-矩阵迭代运算"><a href="#——-MPI-CUDA-加速-GF-2-矩阵迭代运算" class="headerlink" title="—— MPI + CUDA 加速 GF(2) 矩阵迭代运算"></a>—— MPI + CUDA 加速 GF(2) 矩阵迭代运算</h2><hr>
+<h2 id="一、实验基本信息"><a href="#一、实验基本信息" class="headerlink" title="一、实验基本信息"></a>一、实验基本信息</h2><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>实验课程</td>
+<td>COMP 4007: Parallel Processing and Computer Architecture</td>
+</tr>
+<tr>
+<td>实验名称</td>
+<td>Programming Assignment 4</td>
+</tr>
+<tr>
+<td>学生姓名</td>
+<td>谭志强</td>
+</tr>
+<tr>
+<td>学号</td>
+<td>25B951103</td>
+</tr>
+<tr>
+<td>学院</td>
+<td>计算机科学与技术学院</td>
+</tr>
+<tr>
+<td>专业</td>
+<td>电子信息</td>
+</tr>
+<tr>
+<td>实验日期</td>
+<td>2025 年 11 月 17 日</td>
+</tr>
+</tbody></table>
+<h2 id="二、实验目标与问题描述"><a href="#二、实验目标与问题描述" class="headerlink" title="二、实验目标与问题描述"></a>二、实验目标与问题描述</h2><p>本次实验的目标是在 <strong>MPI + CUDA 混合并行环境</strong> 下，加速如下 GF(2)（模 2）意义上的矩阵迭代计算：<br>$$<br>C ;&#x3D;; (A ;+; \sum_{t&#x3D;1}^{m} A B^t) \pmod{2},<br>$$<br>其中：</p>
+<ul>
+<li>$A, B \in {0,1}^{n \times n}$；</li>
+<li>所有加法、乘法均在模 2 下进行，则：<ul>
+<li>乘法：$x \cdot y$ 等价于 <code>x &amp; y</code>；</li>
+<li>加法：$(x + y) \bmod 2$ 等价于 <code>x ^ y</code>。</li>
+</ul>
+</li>
+</ul>
+<p>给定模板代码中串行实现的基本结构为：</p>
+<ol>
+<li>维护 $B^{(t)}$ 与 $B^{(t+1)}$；</li>
+<li>对于每一轮 $t &#x3D; 1..m$：<ul>
+<li>计算 $D &#x3D; A \cdot B^{(t)}$，并令 $C \leftarrow (C + D) \pmod{2}$；</li>
+<li>若 $t &lt; m$，再计算 $B^{(t+1)} &#x3D; B^{(t)} \cdot B$。</li>
+</ul>
+</li>
+</ol>
+<p>该串行算法时间复杂度为 $O(m n^3)$，在 $n, m$ 较大时计算量巨大。</p>
+<hr>
+<h2 id="三、整体并行与优化思路"><a href="#三、整体并行与优化思路" class="headerlink" title="三、整体并行与优化思路"></a>三、整体并行与优化思路</h2><p>在保持题目接口不变的前提下，本实验从以下三个层面进行优化：</p>
+<ol>
+<li><strong>GPU 端：使用 Tile + Shared Memory 的矩阵乘法内核</strong><ul>
+<li>将矩阵划分为 <code>TILE × TILE</code> 的子块，在共享内存中缓存 A、B 的局部子块，减少全局显存访问，提高矩阵乘法的算力利用率。</li>
+</ul>
+</li>
+<li><strong>MPI 端：按行划分的分布式 $B^{(t)}$ 幂运算</strong><ul>
+<li>将 $B^{(t)}$ 的行按 rank 划分，每个进程只负责计算自己对应行块的 $B^{(t+1)}$，利用 <code>MPI_Iallgatherv</code> 将各行块拼成完整 $B^{(t+1)}$，从而在 B 的幂运算上实现 <strong>多进程加速</strong>。</li>
+</ul>
+</li>
+<li><strong>通信–计算重叠</strong><ul>
+<li>利用 <code>MPI_Iallgatherv</code> 发起 $B^{(t+1)}$ 的非阻塞 Allgather；</li>
+<li>同时在 GPU 上用当前的 $B^{(t)}$ 计算 $A B^{(t)}$ 并更新 C；</li>
+<li>通过将通信与计算交叠，减少纯等待时间。</li>
+</ul>
+</li>
+</ol>
+<p>整体思路是：在行划分的基础上，同时发挥 <strong>GPU并行计算 + 多进程分布式计算 + 通信与计算重叠</strong> 三种并行性。</p>
+<hr>
+<h2 id="四、具体实现方案"><a href="#四、具体实现方案" class="headerlink" title="四、具体实现方案"></a>四、具体实现方案</h2><h3 id="1-MPI-层：A-行划分与分布式-B-幂运算"><a href="#1-MPI-层：A-行划分与分布式-B-幂运算" class="headerlink" title="1 MPI 层：A 行划分与分布式 B 幂运算"></a>1 MPI 层：A 行划分与分布式 B 幂运算</h3><h4 id="1-1-A-的行划分与分发"><a href="#1-1-A-的行划分与分发" class="headerlink" title="1.1 A 的行划分与分发"></a>1.1 A 的行划分与分发</h4><ul>
+<li>使用简单的「商 + 余数」策略将行均匀划分：<ul>
+<li>第 <code>rem = n % P</code> 个进程之前的 rank 每个多拿一行；</li>
+<li>通过函数 <code>compute_row_partition(n, P, rank, &amp;offset, &amp;local_rows)</code> 统一计算每个 rank 的起始行与行数。</li>
+</ul>
+</li>
+<li>矩阵 A 的分发与结果 C 的收集：<ul>
+<li>使用 <code>MPI_Scatterv</code> 将 A 的行块分发到各个进程，得到 <code>A_local</code>；</li>
+<li>最终用 <code>MPI_Gatherv</code> 将各 <code>C_local</code> 拼接成完整 C。</li>
+</ul>
+</li>
+</ul>
+<h4 id="1-2-B-与-B-power-的分布式幂运算"><a href="#1-2-B-与-B-power-的分布式幂运算" class="headerlink" title="1.2 B 与 B_power 的分布式幂运算"></a>1.2 B 与 B_power 的分布式幂运算</h4><p>为了避免每个 rank 完整计算一次 $B^{(t+1)}$，对 B 的幂运算也做行划分：</p>
+<ul>
+<li><p>将 $B^{(t)}$ 的行按相同方式划分为若干行块；</p>
+</li>
+<li><p>在每轮迭代中：</p>
+<ol>
+<li><p>每个 rank 仅计算自己负责的行：<br>$$<br>B^{(t+1)}<em>{\text{local}} &#x3D; B^{(t)}</em>{\text{local}} \cdot B<br>$$</p>
+</li>
+<li><p>使用 <code>MPI_Iallgatherv</code> 将 <code>B_next_local</code> 收集为完整的 <code>B_next</code>；</p>
+</li>
+<li><p>交换指针 <code>B_power ↔ B_next</code>，供下一轮迭代使用。</p>
+</li>
+</ol>
+</li>
+</ul>
+<p>这样，B 的幂运算计算量从原始的 $O(n^3)$ 变为 <strong>每个 rank 约 $O(n^3 &#x2F; p)$</strong>，整体计算效率提升($p$为进程数)。</p>
+<hr>
+<h3 id="2-CUDA-层：Tile-Shared-Memory-的-GF-2-矩阵乘法"><a href="#2-CUDA-层：Tile-Shared-Memory-的-GF-2-矩阵乘法" class="headerlink" title="2 CUDA 层：Tile + Shared Memory 的 GF(2) 矩阵乘法"></a>2 CUDA 层：Tile + Shared Memory 的 GF(2) 矩阵乘法</h3><h4 id="2-1-Kernel-设计"><a href="#2-1-Kernel-设计" class="headerlink" title="2.1 Kernel 设计"></a>2.1 Kernel 设计</h4><p>在 GPU 端矩阵乘法采用 <code>TILE × TILE</code>（如 16×16） tile 的 shared memory kernel：</p>
+<ul>
+<li>每个 thread block 对应 C 中的一个 <code>TILE × TILE</code> 子块；</li>
+<li>内部使用两个 <code>__shared__</code> tile：<ul>
+<li><code>As[TILE][TILE]</code> ：缓存 A 的一个子块；</li>
+<li><code>Bs[TILE][TILE]</code> ：缓存 B 的一个子块。</li>
+</ul>
+</li>
+</ul>
+<p>核心循环结构：</p>
+<ol>
+<li>按 <code>K</code> 方向遍历 tile：<ul>
+<li>每次从全局内存加载一块 A、B 的子块到共享内存；</li>
+<li>block 内所有线程 <code>__syncthreads()</code> 后复用该 tile。</li>
+</ul>
+</li>
+<li>对 tile 内进行 <code>TILE</code> 次乘加：<ul>
+<li>元素乘法 <code>A×B</code> 用 <code>&amp;</code>；</li>
+<li>在寄存器中累加整数 <code>tmp</code>；</li>
+</ul>
+</li>
+<li>最终写回时，做一次 <code>tmp &amp; 1</code> 得到 GF(2) 结果。</li>
+</ol>
+<p>述 kernel 同时被用于：</p>
+<ul>
+<li>本地 $D &#x3D; A_{\text{local}} \cdot B^{(t)}$；</li>
+<li>B 幂运算中的 $B^{(t+1)}<em>{\text{local}} &#x3D; B^{(t)}</em>{\text{local}} \cdot B$。</li>
+</ul>
+<h4 id="2-2-C-的更新（GF-2-加法）"><a href="#2-2-C-的更新（GF-2-加法）" class="headerlink" title="2.2 C 的更新（GF(2) 加法）"></a>2.2 C 的更新（GF(2) 加法）</h4><p>C 的更新使用一个一维 kernel，用 XOR 实现模 2 加法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">C[i] ^= D[i];</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="3-通信–计算重叠实现"><a href="#3-通信–计算重叠实现" class="headerlink" title="3 通信–计算重叠实现"></a>3 通信–计算重叠实现</h3><p>在第 $t$ 轮迭代中，存在两类计算：</p>
+<ul>
+<li><strong>对 C</strong>：需要当前的 $B^{(t)}$，计算 $A B^{(t)}$；</li>
+<li><strong>对 B</strong>：需要当前的 $B^{(t)}$，计算 $B^{(t+1)} &#x3D; B^{(t)} B$。</li>
+</ul>
+<p>依赖关系允许我们按如下顺序安排操作：</p>
+<ol>
+<li><p>在每个 rank 上，基于当前 <code>B_power</code> 计算本地 <code>B_next_local</code>：<br>$$<br>B^{(t+1)}<em>{\text{local}} &#x3D; B^{(t)}</em>{\text{local}} B<br>$$</p>
+</li>
+<li><p>立即调用 <code>MPI_Iallgatherv</code>（非阻塞）将 <code>B_next_local</code> 发起全局收集（通信）；</p>
+</li>
+<li><p>与此同时，在 GPU 上用当前 <code>B_power</code> 计算：<br>$$<br>D_{\text{local}} &#x3D; A_{\text{local}} B^{(t)}<br>$$<br>并执行 <code>C_local ^= D_local</code>；</p>
+</li>
+<li><p>计算完成后，调用 <code>MPI_Wait</code>，确保 <code>B_next</code> 已完整收集；</p>
+</li>
+<li><p>交换指针：<code>B_power ↔ B_next</code>，进入下一轮。</p>
+</li>
+</ol>
+<p>通过这一调度，<strong>B 的通信阶段与 A×B 的计算阶段尽可能重叠</strong>，减少进程被动等待通信完成的时间。</p>
+<hr>
+<h2 id="五、实验结果与分析"><a href="#五、实验结果与分析" class="headerlink" title="五、实验结果与分析"></a>五、实验结果与分析</h2><ol>
+<li><p><strong>与串行版本对比：</strong></p>
+<table>
+<thead>
+<tr>
+<th>数据集</th>
+<th>small_1</th>
+<th>small_2</th>
+<th>small_3</th>
+<th>large_1</th>
+<th>large_2</th>
+<th>large_3</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>加速比</td>
+<td>2.24e-5</td>
+<td>6.52e-5</td>
+<td>7.61e-5</td>
+<td>12.39</td>
+<td>68.98</td>
+<td>62.05</td>
+</tr>
+</tbody></table>
+<ul>
+<li>在小矩阵规模（如 $n \le 256$）下，MPI + CUDA 的固定开销（进程启动、内存拷贝等）较大，整体加速效果有限，甚至更慢；</li>
+<li>随着矩阵规模增大，单轮计算量大幅增加，GPU 与多进程优势开始体现，整体加速比可以达到数量级提升。</li>
+</ul>
+</li>
+<li><p><strong>与未优化的 MPI+CUDA 初始版本对比：</strong></p>
+<table>
+<thead>
+<tr>
+<th>数据集</th>
+<th>small_1</th>
+<th>small_2</th>
+<th>small_3</th>
+<th>large_1</th>
+<th>large_2</th>
+<th>large_3</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>优化后加速比</td>
+<td><strong>2.24e-5</strong></td>
+<td><strong>6.52e-5</strong></td>
+<td><strong>7.61e-5</strong></td>
+<td><strong>12.39</strong></td>
+<td><strong>68.98</strong></td>
+<td>**62.05</td>
+</tr>
+<tr>
+<td>原始加速比</td>
+<td>1.91e-5</td>
+<td>6.20e-5</td>
+<td>7.59e-5</td>
+<td>11.63</td>
+<td>16.15</td>
+<td>27.96</td>
+</tr>
+</tbody></table>
+<ul>
+<li>Tile + Shared Memory 内核显著降低了单次矩阵乘的 GPU 时间；</li>
+<li>分布式 B 幂运算明显减少了 B 更新部分的重复计算，尤其在较大 m、较大 p 时更为突出；</li>
+<li>引入通信–计算重叠后，Allgather 的显式开销得到部分隐藏，迭代总时间进一步缩短。</li>
+</ul>
+</li>
+<li><p><strong>扩展性与瓶颈：</strong></p>
+<ul>
+<li>随着进程数 p 增大，B 幂运算的计算部分大致按 1&#x2F;p 缩减，但 Allgather 通信开销逐渐成为瓶颈；</li>
+<li>当 A×B 计算本身很快（例如强 GPU + 中等 n）时，通信占比上升，继续提高 p 的收益减弱；</li>
+<li>通信–计算重叠在此起到“平滑”网络开销的作用，但无法完全消除通信瓶颈。</li>
+</ul>
+</li>
+</ol>
+<p>整体来看，最终版本较串行和 naive 并行基线都取得了明显的性能提升。</p>
+<hr>
+<h2 id="六、进一步优化展望"><a href="#六、进一步优化展望" class="headerlink" title="六、进一步优化展望"></a>六、进一步优化展望</h2><h3 id="Bit-Packing-popc-的位运算加速"><a href="#Bit-Packing-popc-的位运算加速" class="headerlink" title="Bit Packing + __popc 的位运算加速"></a>Bit Packing + <code>__popc</code> 的位运算加速</h3><p>由于矩阵元素仅为 0&#x2F;1，可尝试将每 32 个元素打包到一个 <code>uint32_t</code> 中，在 GF(2) 下：</p>
+<ul>
+<li><p>点积 <code>A[i,*] · B[*,j]</code> 可被转化为：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">uint32_t</span> z = packed_A &amp; packed_B;</span><br><span class="line"><span class="type">int</span> ones  = __popc(z);</span><br><span class="line"><span class="type">int</span> bit   = ones &amp; <span class="number">1</span>;  <span class="comment">// mod 2</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>这样每 32 个标量乘加可用一次 AND + popcount 替代，理论上计算量降低近 32 倍。</p>
+</li>
+</ul>
+<p>潜在问题和代价：</p>
+<ul>
+<li><p>需要额外的打包 &#x2F; 解包逻辑；</p>
+</li>
+<li><p>对于不整除 32 的部分需要额外处理；</p>
+</li>
+</ul>
+<p>代码复杂度较高，实现起来会比较麻烦(有时间再继续。</p>
+<hr>
+<h2 id="七、实验总结"><a href="#七、实验总结" class="headerlink" title="七、实验总结"></a>七、实验总结</h2><p>本次实验围绕 GF(2) 矩阵迭代运算，从串行基线出发，逐步引入：</p>
+<ol>
+<li><strong>MPI 行划分</strong>：将 A 与 B 的幂运算按行拆分到不同进程上，发挥多进程的并行能力；</li>
+<li><strong>CUDA Tile + Shared Memory</strong>：在 GPU 上优化矩阵乘法访存，提高单次算子的效率；</li>
+<li><strong>分布式 B 幂运算</strong>：避免 B 幂在各 rank 重复计算，实现 B 更新部分的多进程加速；</li>
+<li><strong>通信–计算重叠</strong>：通过 <code>MPI_Iallgatherv</code> 将 B 的 Allgather 与 A×B 的计算交叠，减少通信等待。</li>
+</ol>
+<p>最终得到的方案在保证数值正确性的前提下，实现了 <strong>设备内并行 + 设备间并行 + 通信重叠</strong> 的综合优化，后续可引入 bit-packing等更激进的量化优化方案。</p>
+
+</article>
+    
+    
+
+</div>
+<div class="trm-post-next-prev row">
+    <div class="col-lg-12">
+        <!-- title -->
+        <h5 class="trm-title-with-divider">
+            其他文章
+            <span data-number="02"></span>
+        </h5>
+    </div>
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/11/18/multi-process-ov3/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="/img/block.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" #.">
+                    未分类
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/11/18/multi-process-ov3/" class="trm-anima-link">
+                    multi-process-ov3
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/11/18</li>
+                <li>09:11</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="col-lg-6">
+    <div class="trm-blog-card trm-scroll-animation">
+        <a href="/2025/11/14/R3-try/" class="trm-cover-frame trm-anima-link">
+            
+            
+                <img alt="cover" class="no-fancybox" src="/img/block.jpg">
+            
+        </a>
+        
+        <div class="trm-card-descr">
+            <div class="trm-label trm-category trm-mb-20">
+                <a href=" #.">
+                    未分类
+                </a>
+            </div>
+            <h5>
+                <a href="/2025/11/14/R3-try/" class="trm-anima-link">
+                    R3_try
+                </a>
+            </h5>
+            <div class="trm-divider trm-mb-20 trm-mt-20"></div>
+            <ul class="trm-card-data trm-label">
+                <li>25/11/14</li>
+                <li>10:57</li>
+                
+                
+            </ul>
+        </div>
+    </div>
+</div>
+    
+</div>
+
+    
+
+
+
+                    <div class="trm-divider footer-divider"></div>
+
+                    <!-- footer -->
+                    <footer class="trm-footer-card trm-scroll-animation">
+
+    
+
+    
+
+    
+        <div class="trm-footer-item">
+            <span>
+                由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 v7.3.0
+            </span>
+            <span class="footer-separator" data-separator=" | "></span>
+            <span> 
+                主题 - 
+                <a rel="noopener" href='https://github.com/MaLuns/hexo-theme-async' target='_blank'>Async</a>
+                v2.2.6
+            </span>
+        </div>
+      
+
+     
+
+     
+</footer>
+                    <!-- footer end -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <!-- body end -->
+
+            
+
+            
+<div class="trm-fixed-container">
+    
+    
+        <div class="trm-fixed-btn" data-title="阅读模式" onclick="asyncFun.switchReadMode()">
+            <i class="iconfont fas fa-book-reader"></i>
+        </div>
+    
+    
+    <div id="trm-back-top" class="trm-fixed-btn" data-title="回到顶部">
+        <i class="iconfont fas fa-arrow-up"></i>
+    </div>
+</div>
+        </div>
+      </div>
+      <!-- scroll container end -->
+  </div>
+  <!-- app wrapper end -->
+
+  
+  <!-- Plugin -->
+
+
+
+
+    
+    
+<script src="https://unpkg.com/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+
+    
+
+    
+
+    
+
+    <!-- 数学公式 -->
+    
+
+    <!-- 评论插件 -->
+    
+        
+
+        
+    
+
+		
+
+
+
+
+    <!-- Service Worker -->
+    
+    <!-- baidu push -->
+    
+
+
+<script id="async-script" src="/js/main.js?v=2.2.6"></script>
+
+<!-- CDN -->
+
+
+    
+
+    
+
+    
+
+
+
+</body>
+
+</html>
